@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OSCE Remote</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { 
+            background: #121212; color: #fff; font-family: -apple-system, sans-serif; 
+            text-align: center; height: 100vh; margin: 0; display: flex; flex-direction: column; 
+        }
+        
+        /* LOGIN SCREEN */
+        #login-screen { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; }
+        input { 
+            background: #222; border: 2px solid #444; color: white; padding: 20px; 
+            font-size: 2.5rem; text-align: center; letter-spacing: 5px; border-radius: 10px; 
+            text-transform: uppercase; margin-bottom: 20px;
+        }
+        button#btn-connect { background: #059669; padding: 20px; font-size: 1.5rem; color: white; border: none; border-radius: 10px; font-weight: bold; }
+        
+        /* CONTROLS SCREEN */
+        #controls-screen { display: none; flex-direction: column; height: 100%; padding: 15px; box-sizing: border-box; gap: 15px; }
+        
+        .status-bar { 
+            padding: 10px; background: #222; border-radius: 8px; 
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .indicator { width: 12px; height: 12px; border-radius: 50%; background: #444; }
+        .ind-green { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
+        
+        /* BUTTONS */
+        button { border: none; border-radius: 15px; color: white; font-weight: bold; touch-action: manipulation; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+
+        #big-btn { 
+            background: #2563eb; flex-grow: 2; font-size: 2.2rem; 
+            box-shadow: 0 4px 0 #1e40af;
+        }
+        
+        #pause-btn { 
+            background: #d97706; flex-grow: 1; font-size: 1.5rem; 
+            box-shadow: 0 4px 0 #b45309;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h2 style="color:#888;">ENTER 4-DIGIT CODE</h2>
+        <input type="text" id="code-input" placeholder="XXXX" maxlength="4">
+        <button id="btn-connect" onclick="connectToHost()">CONNECT</button>
+        <p id="error-msg" style="color:#ef4444; margin-top:20px;"></p>
+    </div>
+
+    <div id="controls-screen">
+        <div class="status-bar">
+            <div id="ind" class="indicator"></div>
+            <span id="conn-text">Connecting...</span>
+        </div>
+        
+        <button id="big-btn" onclick="sendCommand('CLICK')">NEXT / START</button>
+        
+        <button id="pause-btn" onclick="sendCommand('PAUSE')">PAUSE / RESUME</button>
+    </div>
+
+    <script>
+        const peer = new Peer(); 
+        let conn = null;
+
+        function connectToHost() {
+            const code = document.getElementById('code-input').value.trim().toUpperCase();
+            if(code.length < 4) { alert("Enter 4 characters"); return; }
+
+            const fullId = "osce-dash-" + code;
+            
+            document.getElementById('btn-connect').innerText = "Searching...";
+            document.getElementById('error-msg').innerText = "";
+
+            conn = peer.connect(fullId);
+
+            conn.on('open', () => {
+                // Connection Established!
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('controls-screen').style.display = 'flex';
+                document.getElementById('ind').className = 'indicator ind-green';
+                document.getElementById('conn-text').innerText = "CONNECTED TO " + code;
+            });
+
+            conn.on('error', (err) => {
+                document.getElementById('btn-connect').innerText = "CONNECT";
+                document.getElementById('error-msg').innerText = "Failed: " + err;
+            });
+            
+            peer.on('error', (err) => {
+                document.getElementById('btn-connect').innerText = "CONNECT";
+                document.getElementById('error-msg').innerText = "Error: " + err.type;
+            });
+        }
+
+        function sendCommand(cmd) {
+            if(conn && conn.open) {
+                conn.send(cmd);
+                if(navigator.vibrate) navigator.vibrate(50); // Haptic feedback
+            } else {
+                alert("Connection lost! Refresh page.");
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
