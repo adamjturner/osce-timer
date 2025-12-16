@@ -2,263 +2,314 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSCE Dashboard (Display)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OSCE Manager</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         :root {
-            --bg-color: #121212; --surface: #1e1e1e; --text: #ffffff;
-            --prep-color: #d97706; --station-color: #059669; --move-color: #2563eb;
-            --ready-color: #374151; --standby-color: #0f172a; --stop-color: #b91c1c;
-            --intermission-color: #111; --extra-prep: #7c2d12; --extra-station: #064e3b;
-            --sidebar-bg: #111; --sidebar-border: #333;
+            --bg: #121212; --surf: #1e1e1e; --text: #fff;
+            --accent: #2563eb; --accent-dark: #1e40af;
+            --green: #10b981; --amber: #f59e0b; --red: #ef4444;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-color); color: var(--text); margin: 0; overflow: hidden; height: 100vh; display:flex; flex-direction:column; }
-
-        /* SETUP SCREEN */
-        #setup-view { padding: 40px; max-width: 900px; margin: 0 auto; height: 100vh; overflow-y: auto; position: relative; }
-        .card { background: var(--surface); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        textarea { width: 100%; height: 120px; background: #2d2d2d; border: 1px solid #444; color: #fff; font-family: monospace; }
-        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 20px; }
-        input, select { background: #333; color: white; border: 1px solid #555; padding: 10px; width: 100%; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; background: #2563eb; color: white; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 6px;}
         
-        /* REMOTE CODE BOX (Bottom Left) */
-        #remote-box {
-            position: fixed; bottom: 20px; left: 20px;
-            background: #111; border: 1px solid #333; padding: 15px;
-            border-radius: 8px; display: flex; flex-direction: column; gap: 5px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 1000;
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* --- VIEWS --- */
+        .view { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; }
+        .view.active { display: flex; }
+
+        /* --- 1. LANDING --- */
+        #view-landing { align-items: center; justify-content: center; gap: 20px; z-index: 100; background: var(--bg); }
+        .btn-xl { padding: 25px 40px; font-size: 1.5rem; border: none; border-radius: 15px; width: 90%; max-width: 300px; font-weight: bold; cursor: pointer; color: white; transition: transform 0.1s; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn-host { background: var(--accent); }
+        .btn-remote { background: var(--green); }
+        .btn-xl:active { transform: scale(0.98); }
+
+        /* --- 2. HOST SETUP --- */
+        #view-setup { padding: 30px; overflow-y: auto; max-width: 800px; margin: 0 auto; width: 100%; }
+        .card { background: var(--surf); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        h2 { margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 1.2rem; color: #ccc; }
+        textarea { width: 100%; height: 100px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 6px; padding: 10px; font-family: monospace; }
+        .grid-cfg { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+        label { display: block; color: #888; font-size: 0.8rem; margin-bottom: 4px; }
+        input, select { width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: white; border-radius: 6px; }
+        .btn-full { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        /* --- 3. HOST RUN (DASHBOARD) --- */
+        #view-run { display: none; height: 100%; width: 100%; grid-template-columns: 20% 60% 20%; }
+        .sidebar { background: #0a0a0a; border-right: 1px solid #333; padding: 15px; overflow-hidden: hidden; display: flex; flex-direction: column; }
+        .sidebar-right { border-right: none; border-left: 1px solid #333; }
+        .sb-header { text-align: center; color: #666; font-weight: bold; text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid #333; margin-bottom: 10px; }
+        .list-container { flex-grow: 1; overflow-y: auto; }
+        .student-item { background: #222; padding: 10px; margin-bottom: 6px; border-radius: 4px; border-left: 5px solid #444; font-size: 0.95rem; display: flex; justify-content: space-between; }
+        
+        .main-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: background 0.4s; position: relative; }
+        #timer-display { font-size: 18vw; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+        #status-label { font-size: 4vw; font-weight: 800; text-transform: uppercase; opacity: 0.8; }
+        #sub-label { font-size: 1.5vw; background: rgba(0,0,0,0.3); padding: 5px 20px; border-radius: 20px; margin-top: 10px; }
+        
+        /* --- 4. REMOTE UI --- */
+        #view-remote { align-items: center; justify-content: center; padding: 20px; }
+        #view-remote-login { align-items: center; justify-content: center; padding: 20px; }
+        #remote-code-input { font-size: 3rem; text-align: center; width: 200px; margin: 20px 0; background: #333; border: 2px solid #555; color: white; border-radius: 12px; padding: 10px; letter-spacing: 5px; }
+        
+        /* Remote Controls */
+        .rem-grid { display: grid; grid-template-rows: 1fr 2fr 1fr; width: 100%; height: 100%; gap: 15px; max-width: 500px; }
+        .rem-status { background: #222; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .rem-btn { border: none; border-radius: 15px; font-size: 1.5rem; font-weight: bold; color: white; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .rem-btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn-next { background: var(--accent); font-size: 2rem; }
+        .btn-pause { background: var(--amber); }
+        .btn-exit { background: var(--red); }
+
+        /* --- BOTTOM LEFT CODE (ALWAYS VISIBLE ON HOST) --- */
+        #host-code-display {
+            position: fixed; bottom: 20px; left: 20px; z-index: 99999;
+            background: rgba(0,0,0,0.85); padding: 15px 20px; border-radius: 12px;
+            border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: none; /* Shown via JS when Host */
+            backdrop-filter: blur(5px);
         }
-        #remote-label { font-size: 0.8rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
-        #remote-code { font-size: 2rem; font-weight: bold; color: #3b82f6; font-family: monospace; letter-spacing: 2px; }
-        #conn-status { font-size: 0.8rem; color: #555; display: flex; align-items: center; gap: 5px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
-        .status-dot.on { background: #10b981; box-shadow: 0 0 5px #10b981; }
-
-        /* DASHBOARD */
-        #run-view { display: none; height: 100vh; width: 100vw; grid-template-columns: 20% 60% 20%; }
-        .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); display: flex; flex-direction: column; overflow: hidden; }
-        .sidebar-right { border-right: none; border-left: 1px solid var(--sidebar-border); }
-        .sidebar h3 { margin: 0; padding: 20px; font-size: 1.2rem; color: #888; border-bottom: 2px solid #444; text-align: center; background: var(--sidebar-bg); text-transform: uppercase; }
-        .student-list { list-style: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; }
-        .student-item { padding: 10px 12px; margin-bottom: 6px; background: #252525; border-left: 6px solid #555; display: flex; justify-content: space-between; }
-        .group-tag { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #444; color: #ddd; }
+        .code-title { font-size: 0.75rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+        .code-val { font-size: 2.5rem; font-weight: 800; font-family: monospace; color: var(--accent); letter-spacing: 2px; line-height: 1; }
+        .conn-dot { width: 10px; height: 10px; border-radius: 50%; background: #444; display: inline-block; margin-right: 5px; }
+        .conn-row { display: flex; align-items: center; font-size: 0.8rem; color: #666; margin-top: 5px; }
         
-        .grp-red { border-left-color: #ef4444; } .grp-red .group-tag { background: #ef4444; color: white; }
-        .grp-blue { border-left-color: #3b82f6; } .grp-blue .group-tag { background: #3b82f6; color: white; }
-        .grp-green { border-left-color: #10b981; } .grp-green .group-tag { background: #10b981; color: white; }
-        .grp-yellow { border-left-color: #eab308; } .grp-yellow .group-tag { background: #eab308; color: black; }
-
-        .main-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 100%; transition: background 0.5s; position: relative; }
-        #status-text { font-size: 5vw; font-weight: 800; margin: 0; }
-        #timer { font-size: 15vw; font-weight: 700; margin: 20px 0; font-variant-numeric: tabular-nums; line-height: 1; }
-        #info-bar { font-size: 1.5vw; background: rgba(0,0,0,0.4); padding: 10px 40px; border-radius: 50px; }
+        /* COLORS & UTILS */
+        .bg-standby { background: #0f172a; } .bg-ready { background: #374151; }
+        .bg-prep { background: #d97706; } .bg-station { background: #059669; }
+        .bg-move { background: #2563eb; } .bg-int { background: #111; }
+        .grp-red { border-left-color: #ef4444; } .grp-blue { border-left-color: #3b82f6; }
+        .grp-green { border-left-color: #10b981; } .grp-yellow { border-left-color: #eab308; }
         
-        .mode-standby { background: var(--standby-color); } .mode-ready { background: var(--ready-color); }
-        .mode-prep { background: var(--prep-color); } .mode-station { background: var(--station-color); }
-        .mode-move { background: var(--move-color); } .mode-intermission { background: var(--intermission-color); }
-        .mode-et-prep { background: var(--extra-prep); } .mode-et-station { background: var(--extra-station); }
-        .mode-done { background: var(--stop-color); }
+        .dot-red { background: var(--red); box-shadow: 0 0 8px var(--red); }
+        .dot-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .dot-yellow { background: var(--amber); }
 
-        #action-btn { display: none; margin-top: 30px; font-size: 2rem; padding: 20px 60px; background: #2563eb; color: white; border: none; border-radius: 50px; cursor: pointer; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
+        #laptop-action-btn { position: absolute; bottom: 30px; padding: 20px 60px; font-size: 2rem; border-radius: 50px; border: none; background: white; color: black; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(0,0,0,0.5); display: none; z-index: 500; }
     </style>
 </head>
 <body>
 
-    <div id="setup-view">
-        <div class="card">
-            <h3>Student Data</h3>
-            <textarea id="paste-area" placeholder="ET     Noah    Bansal     Red&#10;        Nargis  Abarok     Green"></textarea>
-            <button onclick="analyze()" style="background:#4b5563;">Analyze Data</button>
-            <div id="analysis-summary" style="margin-top:10px; color:#aaa;"></div>
-        </div>
+    <div id="view-landing" class="view active">
+        <h1 style="margin-bottom:40px; font-size:2.5rem;">OSCE Manager</h1>
+        <button class="btn-xl btn-host" onclick="initHost()">💻 START AS HOST</button>
+        <button class="btn-xl btn-remote" onclick="initRemote()">📱 START AS REMOTE</button>
+    </div>
 
+    <div id="view-setup" class="view">
         <div class="card">
-            <div class="config-grid">
-                <div><label>Prep Time</label><div style="display:flex; gap:5px;"><input type="number" id="val-prep" value="1"><select id="unit-prep"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
-                <div><label>Station Time</label><div style="display:flex; gap:5px;"><input type="number" id="val-station" value="7"><select id="unit-station"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
-                <div><label>Move Time</label><div style="display:flex; gap:5px;"><input type="number" id="val-move" value="1"><select id="unit-move"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
-                <div><label>Lead-In (Sec)</label><input type="number" id="val-leadin" value="10"></div>
-                <div><label>Capacity</label><input type="number" id="capacity" value="12"></div>
-                <div><label>Stations/Circuit</label><input type="number" id="stations-count" value="4"></div>
+            <h2>Student Data (Paste Excel)</h2>
+            <textarea id="paste-area" placeholder="ET     Noah    Bansal     Red&#10;        Nargis  Abarok     Green"></textarea>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                <button onclick="analyzeData()" style="width:auto; padding:10px 20px; font-size:0.9rem; margin:0;">Analyze</button>
+                <div id="analysis-result" style="color:#aaa; font-size:0.9rem;">No data loaded</div>
             </div>
         </div>
-        <button onclick="startExam()">LOAD EXAM</button>
-    </div>
-
-    <div id="remote-box">
-        <div id="remote-label">Remote Code</div>
-        <div id="remote-code">....</div>
-        <div id="conn-status"><div class="status-dot" id="dot"></div> <span id="status-txt">Connecting...</span></div>
-    </div>
-
-    <div id="run-view">
-        <div class="sidebar"><h3 id="lbl-left">Current</h3><ul id="list-current" class="student-list"></ul></div>
-        <div class="main-stage" id="main-stage-bg">
-            <div id="status-text">WELCOME</div>
-            <div id="timer">--:--</div>
-            <div id="info-bar">PLEASE WAIT</div>
-            <button id="action-btn" onclick="nextSection()">BEGIN</button>
+        <div class="card">
+            <h2>Timers</h2>
+            <div class="grid-cfg">
+                <div><label>Prep (min)</label><input type="number" id="t-prep" value="1"></div>
+                <div><label>Station (min)</label><input type="number" id="t-station" value="7"></div>
+                <div><label>Move (min)</label><input type="number" id="t-move" value="1"></div>
+                <div><label>Lead-In (sec)</label><input type="number" id="t-leadin" value="10"></div>
+                <div><label>Capacity</label><input type="number" id="cap" value="12"></div>
+                <div><label>Stations</label><input type="number" id="stats" value="4"></div>
+            </div>
         </div>
-        <div class="sidebar sidebar-right"><h3>Up Next</h3><ul id="list-next" class="student-list"></ul></div>
+        <button class="btn-full" onclick="startExam()">LOAD EXAM DASHBOARD</button>
+    </div>
+
+    <div id="view-run" class="view">
+        <div class="sidebar">
+            <div class="sb-header" id="lbl-left">Current</div>
+            <ul id="list-left" class="student-list list-container"></ul>
+        </div>
+        <div class="main-stage" id="stage">
+            <div id="status-label">WELCOME</div>
+            <div id="timer-display">--:--</div>
+            <div id="sub-label">WAITING...</div>
+            <button id="laptop-action-btn" onclick="nextSection()">BEGIN</button>
+        </div>
+        <div class="sidebar sidebar-right">
+            <div class="sb-header">Up Next</div>
+            <ul id="list-right" class="student-list list-container"></ul>
+        </div>
+    </div>
+
+    <div id="view-remote-login" class="view">
+        <h2>ENTER EXAM CODE</h2>
+        <div style="color:#666; font-size:0.9rem; margin-bottom:10px;">Look at the Laptop Screen (Bottom Left)</div>
+        <input type="number" id="remote-code-input" placeholder="0000">
+        <button class="btn-xl btn-remote" onclick="connectRemote()">CONNECT</button>
+        <div id="rem-login-msg" style="margin-top:20px; color:var(--amber);"></div>
+    </div>
+
+    <div id="view-remote" class="view">
+        <div class="rem-grid">
+            <div class="rem-status" id="rem-bg">
+                <div id="rem-lbl" style="font-size:1.2rem; font-weight:bold;">READY</div>
+                <div id="rem-time" style="font-size:3rem; font-family:monospace; font-weight:bold;">--:--</div>
+            </div>
+            <button class="rem-btn btn-next" onclick="sendCmd('NEXT')">NEXT / START</button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <button class="rem-btn btn-pause" onclick="sendCmd('PAUSE')">PAUSE</button>
+                <button class="rem-btn btn-exit" onclick="location.reload()">EXIT</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="host-code-display">
+        <div class="code-title">Remote Access Code</div>
+        <div class="code-val" id="code-val">----</div>
+        <div class="conn-row"><span class="conn-dot" id="conn-dot"></span> <span id="conn-txt">Offline</span></div>
     </div>
 
     <script>
-        // --- SECURE MQTT SETUP ---
+        // --- CONFIG ---
         const BROKER = "broker.emqx.io";
-        const PORT = 8084; // SSL Port
-        const EXAM_ID = Math.floor(1000 + Math.random() * 9000).toString();
-        let client = null;
+        const PORT = 8084;
+        let client = null, examID = "";
+        let isHost = false;
 
-        function connectMQTT() {
-            document.getElementById('remote-code').innerText = EXAM_ID;
-            const clientId = "host_" + Math.random().toString(16).substr(2, 8);
-            client = new Paho.MQTT.Client(BROKER, PORT, "/mqtt", clientId);
+        // --- STATE ---
+        let students = { et:[], std:[] };
+        let schedule = [], stepIdx = 0, timer = null, timeLeft = 0, paused = false;
+        let capacity = 12, audioCtx = null;
 
-            client.onConnectionLost = (obj) => {
-                document.getElementById('status-txt').innerText = "Reconnecting...";
-                document.getElementById('dot').classList.remove('on');
-                setTimeout(connectMQTT, 2000);
-            };
-
-            client.onMessageArrived = (msg) => {
-                const cmd = JSON.parse(msg.payloadString).action;
-                if(cmd === 'NEXT') {
-                    if(document.getElementById('action-btn').style.display !== 'none') nextSection();
-                }
-                if(cmd === 'PAUSE') togglePause();
-            };
-
-            client.connect({
-                useSSL: true,
-                onSuccess: () => {
-                    document.getElementById('status-txt').innerText = "Online";
-                    document.getElementById('dot').classList.add('on');
-                    client.subscribe(`osce/${EXAM_ID}/cmd`);
-                },
-                onFailure: (e) => { console.log(e); }
-            });
-        }
-        
-        connectMQTT();
-
-        // --- EXAM LOGIC ---
-        let etStudents=[], stdStudents=[], schedule=[];
-        let currentStepIndex=0, timerInterval=null, timeLeft=0, isPaused=false, capacity=12, audioCtx=null;
-
-        function getSeconds(v, u) { 
-            const val = parseFloat(document.getElementById(v).value)||0; 
-            return document.getElementById(u).value==='min' ? val*60 : val; 
+        // --- INIT ---
+        function switchView(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'view-run') document.getElementById('view-run').style.display = 'grid'; // Grid fix
         }
 
-        function analyze() {
-            const raw = document.getElementById('paste-area').value.split('\n');
-            capacity = parseInt(document.getElementById('capacity').value)||12;
-            etStudents=[]; stdStudents=[];
+        // --- HOST LOGIC ---
+        function initHost() {
+            isHost = true;
+            // Generate ID immediately so it shows up even if network is slow
+            examID = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('code-val').innerText = examID;
+            document.getElementById('host-code-display').style.display = 'block';
             
-            raw.forEach(l => {
-                const p = l.split('\t').map(t=>t.trim());
-                if(p.join('').length<2) return;
+            switchView('view-setup');
+            connectMQTT(examID); // Try connecting in background
+        }
+
+        function analyzeData() {
+            const lines = document.getElementById('paste-area').value.split('\n');
+            capacity = parseInt(document.getElementById('cap').value) || 12;
+            students.et = []; students.std = [];
+            
+            lines.forEach(l => {
+                const p = l.replace(/\r/g,'').split('\t').map(t=>t.trim());
+                if(p.join('').length < 2) return;
                 
-                let grp="Unknown", gIdx=-1;
+                // Color Detector
+                let grp = "Unknown", gIdx = -1;
                 ['red','blue','green','yellow'].forEach(c => {
                     for(let i=p.length-1; i>=0; i--) if(p[i].toLowerCase().includes(c)) { grp=p[i]; gIdx=i; }
                 });
 
-                let isET=false, nStart=0;
+                // ET Detector
+                let isET = false, nStart = 0;
                 const c0 = p[0].toLowerCase();
-                if(['et','yes','25','extra','y'].includes(c0) || c0.startsWith('25%')) { isET=true; nStart=1; }
+                if(['et','yes','25','extra'].some(k => c0.includes(k)) || c0.startsWith('25%')) { isET=true; nStart=1; }
                 else if(c0==="") { isET=false; nStart=1; }
 
-                const name = p.slice(nStart, gIdx>-1?gIdx:p.length).join(' ');
-                (isET ? etStudents : stdStudents).push({name, group:grp});
+                const name = p.slice(nStart, gIdx>-1 ? gIdx : p.length).join(' ');
+                (isET ? students.et : students.std).push({ name, group: grp });
             });
 
-            const etF = Math.ceil(etStudents.length/capacity);
-            const stdF = Math.ceil(stdStudents.length/capacity);
-            document.getElementById('analysis-summary').innerText = `Found: ${etStudents.length} ET (${etF} flights), ${stdStudents.length} STD (${stdF} flights)`;
-            return { etF, stdF };
+            const ef = Math.ceil(students.et.length/capacity);
+            const sf = Math.ceil(students.std.length/capacity);
+            document.getElementById('analysis-result').innerText = `ET: ${students.et.length} (${ef} flights) | STD: ${students.std.length} (${sf} flights)`;
+            return { ef, sf };
         }
 
         function startExam() {
-            const cts = analyze();
-            const prep = getSeconds('val-prep','unit-prep');
-            const stn = getSeconds('val-station','unit-station');
-            const move = getSeconds('val-move','unit-move');
-            const lead = parseFloat(document.getElementById('val-leadin').value)||10;
-            const stops = parseInt(document.getElementById('stations-count').value)||4;
+            const cts = analyzeData();
+            if(cts.ef === 0 && cts.sf === 0) return alert("No students found");
 
-            schedule = [];
-            schedule.push({ type:'STANDBY', label:'WELCOME', sub:'WAITING...', color:'mode-standby', nextT: cts.etF>0?'ET':'STD', nextI:0 });
-            
-            if(lead>0) schedule.push({ type:'LEAD', duration:lead, label:'GET READY', sub:'STARTING SHORTLY', color:'mode-ready', nextT: cts.etF>0?'ET':'STD', nextI:0 });
+            const prep = parseFloat(document.getElementById('t-prep').value)*60;
+            const stn = parseFloat(document.getElementById('t-station').value)*60;
+            const move = parseFloat(document.getElementById('t-move').value)*60;
+            const lead = parseFloat(document.getElementById('t-leadin').value);
+            const stops = parseInt(document.getElementById('stats').value);
 
             // Build Schedule
-            const addFlight = (type, fIdx, p, s, listName) => {
+            schedule = [];
+            schedule.push({ type:'STANDBY', label:'WELCOME', sub:'WAITING FOR START', color:'bg-standby', nextT: cts.ef>0?'ET':'STD', nextI:0 });
+            if(lead>0) schedule.push({ type:'LEAD', duration:lead, label:'GET READY', sub:'STARTING SHORTLY', color:'bg-ready', nextT: cts.ef>0?'ET':'STD', nextI:0 });
+
+            // Helper to add flights
+            const addFlight = (type, fIdx, p, s, title) => {
                 for(let i=1; i<=stops; i++) {
-                    schedule.push({ type, fIdx, phase:'PREP', duration:p, label:'PREPARATION', sub:`${listName} FLIGHT ${fIdx+1} - ST ${i}`, color: type==='ET'?'mode-et-prep':'mode-prep' });
-                    schedule.push({ type, fIdx, phase:'STATION', duration:s, label:'STATION', sub:`${listName} FLIGHT ${fIdx+1} - ST ${i}`, color: type==='ET'?'mode-et-station':'mode-station' });
-                    schedule.push({ type, fIdx, phase:'MOVE', duration:move, label:'MOVE', sub:'MOVE TO NEXT', color:'mode-move' });
+                    schedule.push({ type, fIdx, phase:'PREP', duration:p, label:'PREPARATION', sub:`${title} FLIGHT ${fIdx+1} - ST ${i}`, color: type==='ET'?'bg-prep':'bg-prep' }); // Simplified colors
+                    schedule.push({ type, fIdx, phase:'STATION', duration:s, label:'STATION', sub:`${title} FLIGHT ${fIdx+1} - ST ${i}`, color: type==='ET'?'bg-station':'bg-station' });
+                    schedule.push({ type, fIdx, phase:'MOVE', duration:move, label:'MOVE', sub:'MOVE TO NEXT', color:'bg-move' });
                 }
             };
 
-            for(let f=0; f<cts.etF; f++) {
+            for(let f=0; f<cts.ef; f++) {
                 addFlight('ET', f, prep*1.25, stn*1.25, "EXTRA TIME");
-                if(f+1 < cts.etF || cts.stdF>0) schedule.push({ type:'INT', label:'INTERMISSION', sub:'CHANGE GROUP', color:'mode-intermission', nextT:(f+1<cts.etF?'ET':'STD'), nextI:(f+1<cts.etF?f+1:0) });
+                if(f+1<cts.ef || cts.sf>0) schedule.push({ type:'INT', label:'INTERMISSION', sub:'CHANGE GROUP', color:'bg-int', nextT:(f+1<cts.ef?'ET':'STD'), nextI:(f+1<cts.ef?f+1:0) });
             }
-
-            for(let f=0; f<cts.stdF; f++) {
+            for(let f=0; f<cts.sf; f++) {
                 addFlight('STD', f, prep, stn, "STANDARD");
-                if(f+1 < cts.stdF) schedule.push({ type:'INT', label:'INTERMISSION', sub:'CHANGE GROUP', color:'mode-intermission', nextT:'STD', nextI:f+1 });
+                if(f+1<cts.sf) schedule.push({ type:'INT', label:'INTERMISSION', sub:'CHANGE GROUP', color:'bg-int', nextT:'STD', nextI:f+1 });
             }
 
-            if(schedule.length===1) return alert("No students found.");
-            
             try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
-
-            currentStepIndex = 0;
-            document.getElementById('setup-view').style.display='none';
-            document.getElementById('run-view').style.display='grid';
+            stepIdx = 0;
+            switchView('view-run');
             runStep();
+            broadcast();
         }
 
         function runStep() {
-            if(currentStepIndex >= schedule.length) { finish(); return; }
-            const step = schedule[currentStepIndex];
+            if(stepIdx >= schedule.length) { finish(); return; }
+            const step = schedule[stepIdx];
 
-            document.getElementById('status-text').innerText = step.label;
-            document.getElementById('info-bar').innerText = step.sub;
-            document.getElementById('main-stage-bg').className = 'main-stage ' + step.color;
+            // Update UI
+            document.getElementById('status-label').innerText = step.label;
+            document.getElementById('sub-label').innerText = step.sub;
+            document.getElementById('stage').className = 'main-stage ' + step.color;
             updateSidebars(step);
 
-            if(['STANDBY','INT','LEAD'].includes(step.type) && step.phase !== 'READY') {
-                clearInterval(timerInterval);
-                document.getElementById('timer').innerText = "--:--";
-                const btn = document.getElementById('action-btn');
+            // Manual Stops
+            if(['STANDBY','INT','LEAD'].includes(step.type) && step.phase !== 'READY') { // Lead is timed
+                clearInterval(timer);
+                document.getElementById('timer-display').innerText = "--:--";
+                const btn = document.getElementById('laptop-action-btn');
                 btn.style.display = 'inline-block';
                 btn.innerText = step.type==='STANDBY' ? "BEGIN EXAM" : "START FLIGHT";
-                if(step.type==='INT') playBeep(600, 0.4);
+                if(step.type==='INT') playBeep(600,0.4);
+                broadcast();
                 return;
             }
 
-            document.getElementById('action-btn').style.display = 'none';
+            document.getElementById('laptop-action-btn').style.display = 'none';
             timeLeft = Math.floor(step.duration);
             updateTimerDisplay();
 
-            if(step.phase==='PREP') playBeep(440, 0.6);
-            if(step.phase==='STATION') { playBeep(800,0.15); setTimeout(()=>playBeep(800,0.4), 200); }
-            if(step.phase==='MOVE') playBeep(600, 0.3);
+            // Sounds
+            if(step.phase==='PREP') playBeep(440,0.6);
+            if(step.phase==='STATION') { playBeep(800,0.15); setTimeout(()=>playBeep(800,0.4),200); }
+            if(step.phase==='MOVE') playBeep(600,0.3);
 
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                if(!isPaused) {
+            clearInterval(timer);
+            timer = setInterval(() => {
+                if(!paused) {
                     timeLeft--;
                     updateTimerDisplay();
-                    if(timeLeft<0) { currentStepIndex++; runStep(); }
+                    if(timeLeft % 3 === 0) broadcast(); // Sync periodically
+                    if(timeLeft < 0) { stepIdx++; runStep(); }
                 }
             }, 1000);
+            broadcast();
         }
 
         function updateSidebars(step) {
@@ -267,15 +318,15 @@
 
             if(['STANDBY','LEAD','INT'].includes(step.type)) {
                 document.getElementById('lbl-left').innerText = "Get Ready";
-                if(step.nextT === 'ET') left = slice(etStudents, step.nextI);
-                else left = slice(stdStudents, step.nextI);
+                if(step.nextT === 'ET') left = slice(students.et, step.nextI);
+                else left = slice(students.std, step.nextI);
             } else {
                 document.getElementById('lbl-left').innerText = "Current";
-                if(step.type === 'ET') left = slice(etStudents, step.fIdx);
-                else left = slice(stdStudents, step.fIdx);
+                if(step.type === 'ET') left = slice(students.et, step.fIdx);
+                else left = slice(students.std, step.fIdx);
             }
-            renderList('list-current', left);
-            renderList('list-next', []);
+            renderList('list-left', left);
+            renderList('list-right', []); // Simplified
         }
 
         function renderList(id, list) {
@@ -294,18 +345,20 @@
             });
         }
 
-        function nextSection() { currentStepIndex++; runStep(); }
-        function togglePause() { isPaused = !isPaused; }
+        function nextSection() { stepIdx++; runStep(); }
+        function togglePause() { paused = !paused; broadcast(); }
+        
         function updateTimerDisplay() {
             const m = Math.floor(timeLeft/60).toString().padStart(2,'0');
             const s = (timeLeft%60).toString().padStart(2,'0');
-            document.getElementById('timer').innerText = `${m}:${s}`;
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
         }
         function finish() {
-            clearInterval(timerInterval);
-            document.getElementById('status-text').innerText = "COMPLETE";
-            document.getElementById('timer').innerText = "00:00";
-            playBeep(600,0.2);
+            clearInterval(timer);
+            document.getElementById('stage').className = 'main-stage bg-int';
+            document.getElementById('status-label').innerText = "COMPLETE";
+            document.getElementById('timer-display').innerText = "00:00";
+            broadcast();
         }
         function playBeep(f,d) {
             if(!audioCtx) return;
@@ -315,6 +368,98 @@
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+d); 
             o.stop(audioCtx.currentTime+d);
         }
+
+        // --- REMOTE LOGIC ---
+        function initRemote() {
+            isHost = false;
+            switchView('view-remote-login');
+        }
+
+        function connectRemote() {
+            const val = document.getElementById('remote-code-input').value;
+            if(val.length !== 4) return alert("Enter 4 digits");
+            examID = val;
+            document.getElementById('rem-login-msg').innerText = "Connecting...";
+            connectMQTT(examID);
+        }
+
+        // --- MQTT CORE ---
+        function connectMQTT(id) {
+            const clientId = (isHost?"host_":"rem_") + Math.random().toString(16).substr(2,8);
+            client = new Paho.MQTT.Client(BROKER, PORT, "/mqtt", clientId);
+
+            client.onConnectionLost = (o) => {
+                if(isHost) {
+                    document.getElementById('conn-txt').innerText = "Reconnecting...";
+                    document.getElementById('conn-dot').className = "conn-dot dot-red";
+                } else {
+                    document.getElementById('rem-login-msg').innerText = "Connection lost";
+                }
+                setTimeout(()=>connectMQTT(id), 2000);
+            };
+
+            client.onMessageArrived = (msg) => {
+                const d = JSON.parse(msg.payloadString);
+                if(isHost) {
+                    // Host receiving command
+                    if(d.act === 'NEXT') { if(document.getElementById('laptop-action-btn').style.display !== 'none') nextSection(); }
+                    if(d.act === 'PAUSE') togglePause();
+                } else {
+                    // Remote receiving status
+                    switchView('view-remote'); // Ensure we are on remote screen
+                    document.getElementById('rem-lbl').innerText = d.lbl;
+                    document.getElementById('rem-time').innerText = d.time;
+                    document.getElementById('rem-bg').style.background = d.col; // Sync color
+                }
+            };
+
+            client.connect({
+                useSSL: true,
+                onSuccess: () => {
+                    if(isHost) {
+                        document.getElementById('conn-txt').innerText = "Online";
+                        document.getElementById('conn-dot').className = "conn-dot dot-green";
+                        client.subscribe(`osce/${id}/cmd`);
+                    } else {
+                        client.subscribe(`osce/${id}/state`);
+                        switchView('view-remote');
+                    }
+                },
+                onFailure: (e) => {
+                    if(isHost) {
+                        document.getElementById('conn-txt').innerText = "Error (Retrying)";
+                        document.getElementById('conn-dot').className = "conn-dot dot-red";
+                        setTimeout(()=>connectMQTT(id), 3000);
+                    } else {
+                        document.getElementById('rem-login-msg').innerText = "Failed: " + e.errorMessage;
+                    }
+                }
+            });
+        }
+
+        function broadcast() {
+            if(!isHost || !client || !client.isConnected()) return;
+            // Get color from computed style or class
+            const bg = window.getComputedStyle(document.getElementById('stage')).backgroundColor;
+            const msg = {
+                lbl: document.getElementById('status-label').innerText,
+                time: document.getElementById('timer-display').innerText,
+                col: bg
+            };
+            const m = new Paho.MQTT.Message(JSON.stringify(msg));
+            m.destinationName = `osce/${examID}/state`;
+            m.retained = true;
+            client.send(m);
+        }
+
+        function sendCmd(act) {
+            if(!client || !client.isConnected()) return alert("Disconnected");
+            const m = new Paho.MQTT.Message(JSON.stringify({ act }));
+            m.destinationName = `osce/${examID}/cmd`;
+            client.send(m);
+            if(navigator.vibrate) navigator.vibrate(50);
+        }
+
     </script>
 </body>
 </html>
