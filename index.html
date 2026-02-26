@@ -10,7 +10,7 @@
             --bg: #121212; --surf: #1e1e1e; --text: #ffffff;
             --accent: #2563eb; --green: #10b981; --amber: #f59e0b; --red: #ef4444;
             
-            /* Logic Colors from your file */
+            /* Logic Colors */
             --prep-color: #d97706; --station-color: #059669; --feedback-color: #7e22ce; --move-color: #2563eb;
             --ready-color: #374151; --standby-color: #0f172a; --stop-color: #b91c1c;
             --intermission-color: #111; --extra-prep: #7c2d12; --extra-station: #064e3b;
@@ -42,17 +42,12 @@
         input, select { background: #333; border: 1px solid #555; color: white; padding: 10px; width: 100%; border-radius: 6px; }
         .btn-full { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 8px; }
 
-        /* 3. DASHBOARD (Host) - Preserved Layout */
+        /* 3. DASHBOARD */
         #view-run { display: none; height: 100vh; width: 100vw; grid-template-columns: 20% 60% 20%; }
-        
         .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
         .sidebar-right { border-right: none; border-left: 1px solid var(--border); }
         .sb-header { margin: 0; padding: 20px; text-transform: uppercase; font-size: 1.2rem; color: #888; border-bottom: 2px solid #444; text-align: center; background: var(--sidebar-bg); flex-shrink: 0; }
-        
         .student-list { list-style: none; padding: 10px; margin: 0; flex-grow: 1; overflow-y: auto; }
-        .student-list::-webkit-scrollbar { width: 8px; }
-        .student-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-
         .student-item { padding: 12px 15px; margin-bottom: 6px; background: #252525; border-radius: 4px; border-left: 6px solid #555; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
         .group-tag { font-size: 0.75rem; font-weight: bold; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #444; color: #ddd; }
         .grp-red { border-left-color: #ef4444 !important; } .grp-red .group-tag { background: #ef4444; color: white; }
@@ -68,33 +63,31 @@
         /* Phases */
         .mode-standby { background: var(--standby-color); } .mode-ready { background: var(--ready-color); }
         .mode-prep { background: var(--prep-color); } .mode-station { background: var(--station-color); }
-        .mode-feedback { background: var(--feedback-color); } .mode-move { background: var(--move-color); } 
+        .mode-feedback { background: var(--feedback-color); } .mode-move { background: var(--move-color); }
         .mode-intermission { background: var(--intermission-color); }
         .mode-et-prep { background: var(--extra-prep); } .mode-et-station { background: var(--extra-station); }
         .mode-done { background: var(--stop-color); }
 
-        /* Laptop Action Button */
         #action-btn { display: none; margin-top: 30px; font-size: 2rem; padding: 20px 60px; background: white; color: black; border: none; border-radius: 50px; cursor: pointer; animation: pulse 2s infinite; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 100; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* HOST CODE OVERLAY (Bottom Left) */
+        /* CENTRALIZED HOST CODE */
         #host-code-display {
-            position: fixed; bottom: 20px; left: 20px; z-index: 9999;
-            background: rgba(0,0,0,0.85); padding: 15px 20px; border-radius: 12px;
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;
+            background: rgba(0,0,0,0.85); padding: 15px 30px; border-radius: 12px;
             border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            display: none; backdrop-filter: blur(5px);
+            display: none; backdrop-filter: blur(5px); text-align: center;
         }
         .code-title { font-size: 0.75rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
         .code-val { font-size: 2.5rem; font-weight: 800; font-family: monospace; color: var(--accent); letter-spacing: 2px; line-height: 1; }
-        .conn-row { display: flex; align-items: center; font-size: 0.8rem; color: #666; margin-top: 5px; gap: 6px; }
+        .conn-row { display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #666; margin-top: 5px; gap: 6px; }
         .conn-dot { width: 10px; height: 10px; border-radius: 50%; background: #444; display: inline-block; }
-        .conn-dot.on { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .conn-dot.dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .conn-dot.dot-red { background: var(--red); box-shadow: 0 0 5px var(--red); }
 
-        /* 4. REMOTE LOGIN */
+        /* REMOTE VIEWS */
         #view-remote-login { align-items: center; justify-content: center; padding: 20px; }
         #remote-code-input { font-size: 3rem; width: 200px; text-align: center; margin: 20px 0; background: #333; border: 2px solid #555; color: white; border-radius: 12px; padding: 10px; letter-spacing: 5px; }
-        
-        /* 5. REMOTE CONTROLLER */
         #view-remote { align-items: center; justify-content: center; padding: 20px; }
         .rem-grid { display: grid; grid-template-rows: 1fr 2fr 1fr; width: 100%; height: 100%; gap: 15px; max-width: 500px; }
         .rem-status { background: #222; border-radius: 15px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background 0.3s; }
@@ -183,21 +176,12 @@
     </div>
 
     <script>
-        // --- SECURE MQTT CONFIG ---
         const BROKER = "broker.emqx.io";
-        const PORT = 8084; // SSL Port for Firewall Bypass
+        const PORT = 8084; 
         let client = null, examID = "", isHost = false;
 
-        // --- EXAM STATE (Logic Preserved from your upload) ---
-        let etStudents = [];
-        let stdStudents = [];
-        let schedule = []; 
-        let currentStepIndex = 0;
-        let timerInterval = null;
-        let timeLeft = 0;
-        let isPaused = false;
-        let capacity = 12;
-        let audioCtx = null;
+        let etStudents = [], stdStudents = [], schedule = []; 
+        let currentStepIndex = 0, timerInterval = null, timeLeft = 0, isPaused = false, capacity = 12, audioCtx = null;
 
         function switchView(id) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -205,15 +189,13 @@
             if(id==='view-run') document.getElementById('view-run').style.display='grid';
         }
 
-        // --- HOST LOGIC ---
         function initHost() {
             isHost = true;
-            // Immediate Code Display
             examID = Math.floor(1000 + Math.random() * 9000).toString();
             document.getElementById('code-val').innerText = examID;
             document.getElementById('host-code-display').style.display = 'block';
             switchView('view-setup');
-            connectMQTT(examID); // Connect in background
+            connectMQTT(examID);
         }
 
         function getSeconds(valId, unitId) {
@@ -221,8 +203,7 @@
             const elUnit = document.getElementById(unitId);
             if(!elVal || !elUnit) return 0;
             const val = parseFloat(elVal.value) || 0;
-            const unit = elUnit.value; 
-            return unit === 'min' ? val * 60 : val;
+            return elUnit.value === 'min' ? val * 60 : val;
         }
 
         function analyze() {
@@ -230,191 +211,96 @@
                 const raw = document.getElementById('paste-area').value;
                 const lines = raw.split('\n');
                 capacity = parseInt(document.getElementById('capacity').value) || 12;
-
-                etStudents = [];
-                stdStudents = [];
+                etStudents = []; stdStudents = [];
                 const etTriggers = ['et', 'yes', '25', '25%', 'extra', 'y'];
                 const colorTriggers = ['red', 'blue', 'green', 'yellow'];
 
                 lines.forEach(line => {
                     const rawTokens = line.replace(/\r/g, '').split('\t').map(t => t.trim());
                     if (rawTokens.join('').length === 0) return;
-
-                    let group = "Unknown";
-                    let groupIndex = -1;
-
+                    let group = "Unknown", groupIndex = -1;
                     for (let i = rawTokens.length - 1; i >= 0; i--) {
-                        const txt = rawTokens[i].toLowerCase();
-                        if (colorTriggers.some(c => txt.includes(c))) {
+                        if (colorTriggers.some(c => rawTokens[i].toLowerCase().includes(c))) {
                             group = rawTokens[i]; groupIndex = i; break;
                         }
                     }
-
-                    let isExtra = false;
-                    let nameStart = 0;
-                    const firstCol = rawTokens[0].toLowerCase();
-                    const isTrigger = etTriggers.includes(firstCol) || firstCol.startsWith('25%');
-
-                    if (isTrigger) { isExtra = true; nameStart = 1; } 
-                    else if (firstCol === "") { isExtra = false; nameStart = 1; } 
-                    else { isExtra = false; nameStart = 0; }
-
+                    const isExtra = etTriggers.includes(rawTokens[0].toLowerCase()) || rawTokens[0].toLowerCase().startsWith('25%');
+                    const nameStart = (isExtra || rawTokens[0] === "") ? 1 : 0;
                     const nameEnd = (groupIndex > -1) ? groupIndex : rawTokens.length;
-                    let nameParts = rawTokens.slice(nameStart, nameEnd).filter(n => n.length > 0);
-                    const fullName = nameParts.join(' ');
-
-                    if (groupIndex === -1 && rawTokens.length > 0) {
-                         const validTokens = rawTokens.filter(t => t.length > 0);
-                         if(validTokens.length > 1) group = validTokens[validTokens.length-1];
-                    }
-
+                    const fullName = rawTokens.slice(nameStart, nameEnd).filter(n => n.length > 0).join(' ');
                     const studentObj = { name: fullName, group: group };
-                    if (isExtra) etStudents.push(studentObj);
-                    else stdStudents.push(studentObj);
+                    if (isExtra) etStudents.push(studentObj); else stdStudents.push(studentObj);
                 });
-
                 const etFlights = Math.ceil(etStudents.length / capacity);
                 const stdFlights = Math.ceil(stdStudents.length / capacity);
-
                 document.getElementById('analysis-summary').style.display = 'block';
-                document.getElementById('analysis-summary').innerText = 
-                    `Found: ${etStudents.length} ET (${etFlights} flights), ${stdStudents.length} STD (${stdFlights} flights)`;
-
+                document.getElementById('analysis-summary').innerText = `Found: ${etStudents.length} ET (${etFlights} flights), ${stdStudents.length} STD (${stdFlights} flights)`;
                 return { etFlights, stdFlights };
-            } catch (err) {
-                alert("Error in Analyze: " + err.message);
-                return { etFlights: 0, stdFlights: 0 };
-            }
+            } catch (err) { alert("Error: " + err.message); return { etFlights: 0, stdFlights: 0 }; }
         }
 
         function startExam() {
-            try {
-                if (!document.getElementById('stations-count')) throw new Error("Missing inputs.");
-                
-                const counts = analyze(); 
-                
-                const basePrep = getSeconds('val-prep', 'unit-prep');
-                const baseStation = getSeconds('val-station', 'unit-station');
-                const baseFeedback = getSeconds('val-feedback', 'unit-feedback');
-                const baseMove = getSeconds('val-move', 'unit-move');
-                const leadIn = parseFloat(document.getElementById('val-leadin').value) || 10;
-                const stationsCount = parseInt(document.getElementById('stations-count').value) || 4;
+            const counts = analyze();
+            const basePrep = getSeconds('val-prep', 'unit-prep'), baseStation = getSeconds('val-station', 'unit-station');
+            const baseFeedback = getSeconds('val-feedback', 'unit-feedback'), baseMove = getSeconds('val-move', 'unit-move');
+            const leadIn = parseFloat(document.getElementById('val-leadin').value) || 10;
+            const stationsCount = parseInt(document.getElementById('stations-count').value) || 4;
 
-                const etPrep = basePrep * 1.25;
-                const etStation = baseStation * 1.25;
-                const etFeedback = baseFeedback * 1.25;
+            schedule = [{ type: 'STANDBY', phase: 'WAIT', duration: 0, label: 'WELCOME', sub: 'WAITING TO START', colorClass: 'mode-standby', nextType: (counts.etFlights > 0) ? 'ET' : 'STD', nextIdx: 0 }];
+            if(leadIn > 0) schedule.push({ type: 'LEAD_IN', phase: 'READY', duration: leadIn, label: 'GET READY', sub: 'EXAM STARTING', colorClass: 'mode-ready', nextType: (counts.etFlights > 0) ? 'ET' : 'STD', nextIdx: 0 });
 
-                schedule = [];
-
-                // 1. STANDBY
-                schedule.push({ 
-                    type: 'STANDBY', 
-                    phase: 'WAIT', 
-                    duration: 0, 
-                    label: 'WELCOME', 
-                    sub: 'PLEASE WAIT FOR INSTRUCTIONS', 
-                    colorClass: 'mode-standby',
-                    nextType: (counts.etFlights > 0) ? 'ET' : 'STD', 
-                    nextIdx: 0
-                });
-
-                // 2. LEAD IN
-                if(leadIn > 0) {
-                    schedule.push({ type: 'LEAD_IN', phase: 'READY', duration: leadIn, label: 'GET READY', sub: 'EXAM STARTING SHORTLY', colorClass: 'mode-ready', nextType: (counts.etFlights > 0) ? 'ET' : 'STD', nextIdx: 0 });
+            const createFlight = (type, fIdx, countsObj) => {
+                const isET = type === 'ET';
+                const mult = isET ? 1.25 : 1;
+                for(let s = 1; s <= stationsCount; s++) {
+                    schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${type} FLIGHT ${fIdx+1} - STN ${s}`, colorClass: isET ? 'mode-et-prep' : 'mode-prep' });
+                    schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${type} FLIGHT ${fIdx+1} - STN ${s}`, colorClass: isET ? 'mode-et-station' : 'mode-station' });
+                    if(baseFeedback > 0) schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'FEEDBACK', duration: baseFeedback * mult, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
+                    schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
                 }
+            };
 
-                // 3. ET FLIGHTS
-                for(let flight = 0; flight < counts.etFlights; flight++) {
-                    for(let s = 1; s <= stationsCount; s++) {
-                        schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'PREP', duration: etPrep, label: 'PREPARATION', sub: `EXTRA TIME FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-et-prep' });
-                        schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'STATION', duration: etStation, label: 'STATION', sub: `EXTRA TIME FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-et-station' });
-                        
-                        if (baseFeedback > 0) {
-                            schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'FEEDBACK', duration: etFeedback, label: 'FEEDBACK', sub: `EXTRA TIME FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-feedback' });
-                        }
-
-                        schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
-                    }
-                    
-                    const hasNextET = (flight + 1 < counts.etFlights);
-                    const hasSTD = (counts.stdFlights > 0);
-                    
-                    if(hasNextET) {
-                        schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'GET NEXT GROUP READY', colorClass: 'mode-intermission', nextType: 'ET', nextIdx: flight + 1 });
-                    } else if(hasSTD) {
-                        schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'GET NEXT GROUP READY', colorClass: 'mode-intermission', nextType: 'STD', nextIdx: 0 });
-                    }
-                }
-
-                // 4. STD FLIGHTS
-                for(let flight = 0; flight < counts.stdFlights; flight++) {
-                    for(let s = 1; s <= stationsCount; s++) {
-                        schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'PREP', duration: basePrep, label: 'PREPARATION', sub: `STANDARD FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-prep' });
-                        schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'STATION', duration: baseStation, label: 'STATION', sub: `STANDARD FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-station' });
-                        
-                        if (baseFeedback > 0) {
-                            schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `STANDARD FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-feedback' });
-                        }
-
-                        schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
-                    }
-
-                    if (flight + 1 < counts.stdFlights) {
-                        schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'GET NEXT GROUP READY', colorClass: 'mode-intermission', nextType: 'STD', nextIdx: flight + 1 });
-                    }
-                }
-
-                if (schedule.length === 0) { alert("No students found. Did you paste data?"); return; }
-                
-                try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
-
-                currentStepIndex = 0;
-                switchView('view-run');
-                runStep();
-                broadcast(); // Initial sync
-
-            } catch (err) {
-                alert("Start Error: " + err.message);
+            for(let f = 0; f < counts.etFlights; f++) {
+                createFlight('ET', f, counts);
+                if(f + 1 < counts.etFlights) schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'PREPARE NEXT GROUP', colorClass: 'mode-intermission', nextType: 'ET', nextIdx: f+1 });
+                else if(counts.stdFlights > 0) schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'PREPARE NEXT GROUP', colorClass: 'mode-intermission', nextType: 'STD', nextIdx: 0 });
             }
+            for(let f = 0; f < counts.stdFlights; f++) {
+                createFlight('STD', f, counts);
+                if(f + 1 < counts.stdFlights) schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'PREPARE NEXT GROUP', colorClass: 'mode-intermission', nextType: 'STD', nextIdx: f+1 });
+            }
+
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            currentStepIndex = 0; switchView('view-run'); runStep();
         }
 
         function runStep() {
             if (currentStepIndex >= schedule.length) { finish(); return; }
             const step = schedule[currentStepIndex];
-
-            // Setup UI
             document.getElementById('status-text').innerText = step.label;
             document.getElementById('info-bar').innerText = step.sub;
             document.getElementById('main-stage-bg').className = 'main-stage ' + step.colorClass;
             updateSidebars(step);
 
-            // Handle Manual Pauses
-            if (step.type === 'STANDBY' || step.type === 'INTERMISSION') {
-                clearInterval(timerInterval);
-                document.getElementById('timer').innerText = "--:--";
+            if (step.phase === 'PAUSE' || step.phase === 'WAIT') {
+                clearInterval(timerInterval); document.getElementById('timer').innerText = "--:--";
                 document.getElementById('action-btn').style.display = 'inline-block';
-                document.getElementById('action-btn').innerText = (step.type === 'STANDBY') ? "BEGIN EXAM" : "START FLIGHT";
-                
-                if(step.type === 'INTERMISSION') playBeep(600, 0.4, 0);
-                broadcast();
-                return; 
+                document.getElementById('action-btn').innerText = step.type === 'STANDBY' ? "BEGIN EXAM" : "START FLIGHT";
+                broadcast(); return; 
             }
 
-            // Running Timer
             document.getElementById('action-btn').style.display = 'none';
-            timeLeft = Math.floor(step.duration);
-            updateTimerDisplay();
-
+            timeLeft = Math.floor(step.duration); updateTimerDisplay();
+            
             if (step.phase === 'STATION') { playBeep(800, 0.15, 0); playBeep(800, 0.4, 0.2); } 
-            else if (step.phase === 'PREP') { playBeep(440, 0.6); }
-            else if (step.phase === 'FEEDBACK') { playBeep(700, 0.4); } 
-            else if (step.phase === 'MOVE') { playBeep(600, 0.3); }
+            else if (step.phase === 'PREP') playBeep(440, 0.6);
+            else if (step.phase === 'FEEDBACK') playBeep(700, 0.4);
+            else if (step.phase === 'MOVE') playBeep(600, 0.3);
 
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 if(!isPaused) {
-                    timeLeft--;
-                    updateTimerDisplay();
+                    timeLeft--; updateTimerDisplay();
                     if(timeLeft % 3 === 0) broadcast();
                     if (timeLeft < 0) { currentStepIndex++; runStep(); }
                 }
@@ -422,189 +308,76 @@
             broadcast();
         }
 
-        function nextSection() { currentStepIndex++; runStep(); }
-        function togglePause() { isPaused = !isPaused; broadcast(); }
-        
         function updateSidebars(step) {
-            let currentList = [];
-            let nextList = [];
-            const getSlice = (arr, idx) => arr.slice(idx * capacity, (idx * capacity) + capacity);
+            let current = [], next = [], get = (arr, i) => arr.slice(i * capacity, (i * capacity) + capacity);
+            const isTransition = ['STANDBY', 'LEAD_IN', 'INTERMISSION'].includes(step.type);
+            const type = isTransition ? step.nextType : step.type;
+            const idx = isTransition ? step.nextIdx : step.flightIndex;
 
-            if (step.type === 'STANDBY' || step.type === 'LEAD_IN' || step.type === 'INTERMISSION') {
-                document.getElementById('lbl-left').innerText = "Get Into Position";
-                document.getElementById('lbl-right').innerText = "On Deck";
-                const type = step.nextType;
-                const idx = step.nextIdx;
-
-                if (type === 'ET') {
-                    currentList = getSlice(etStudents, idx);
-                    const totalET = Math.ceil(etStudents.length / capacity);
-                    if (idx + 1 < totalET) nextList = getSlice(etStudents, idx + 1);
-                    else nextList = (stdStudents.length > 0) ? getSlice(stdStudents, 0) : [];
-                } else {
-                    currentList = getSlice(stdStudents, idx);
-                    const totalSTD = Math.ceil(stdStudents.length / capacity);
-                    if (idx + 1 < totalSTD) nextList = getSlice(stdStudents, idx + 1);
-                }
+            if (type === 'ET') {
+                current = get(etStudents, idx);
+                if (idx + 1 < Math.ceil(etStudents.length/capacity)) next = get(etStudents, idx+1);
+                else next = get(stdStudents, 0);
             } else {
-                document.getElementById('lbl-left').innerText = "Current Group";
-                document.getElementById('lbl-right').innerText = "Up Next";
-                if (step.type === 'ET') {
-                    currentList = getSlice(etStudents, step.flightIndex);
-                    const totalET = Math.ceil(etStudents.length / capacity);
-                    if (step.flightIndex + 1 < totalET) nextList = getSlice(etStudents, step.flightIndex + 1);
-                    else nextList = (stdStudents.length > 0) ? getSlice(stdStudents, 0) : [];
-                } else {
-                    currentList = getSlice(stdStudents, step.flightIndex);
-                    const totalSTD = Math.ceil(stdStudents.length / capacity);
-                    if (step.flightIndex + 1 < totalSTD) nextList = getSlice(stdStudents, step.flightIndex + 1);
-                }
+                current = get(stdStudents, idx);
+                next = get(stdStudents, idx + 1);
             }
-
-            renderStudentList('list-current', currentList);
-            renderStudentList('list-next', nextList);
+            renderList('list-current', current); renderList('list-next', next);
         }
 
-        function renderStudentList(elementId, students) {
-            const list = document.getElementById(elementId);
-            list.innerHTML = '';
-            if (!students || students.length === 0) { list.innerHTML = '<li style="color:#555; text-align:center; padding:20px;">-</li>'; return; }
-            const sorted = [...students].sort((a, b) => (a.group||"").localeCompare(b.group||""));
-            sorted.forEach(s => {
-                const li = document.createElement('li');
-                let c = "";
-                const g = (s.group || "").toLowerCase();
-                if(g.includes('red')) c = 'grp-red';
-                else if(g.includes('blue')) c = 'grp-blue';
-                else if(g.includes('green')) c = 'grp-green';
-                else if(g.includes('yellow')) c = 'grp-yellow';
+        function renderList(id, students) {
+            const list = document.getElementById(id); list.innerHTML = '';
+            if (!students || students.length === 0) return;
+            [...students].sort((a,b) => (a.group||"").localeCompare(b.group||"")).forEach(s => {
+                const li = document.createElement('li'), g = (s.group||"").toLowerCase();
+                let c = g.includes('red') ? 'grp-red' : g.includes('blue') ? 'grp-blue' : g.includes('green') ? 'grp-green' : g.includes('yellow') ? 'grp-yellow' : '';
                 li.className = `student-item ${c}`;
                 li.innerHTML = `<span>${s.name}</span><span class="group-tag">${s.group}</span>`;
                 list.appendChild(li);
             });
         }
 
-        function finish() {
-            clearInterval(timerInterval);
-            document.getElementById('main-stage-bg').className = 'main-stage mode-done';
-            document.getElementById('status-text').innerText = "EXAM COMPLETE";
-            document.getElementById('timer').innerText = "00:00";
-            document.getElementById('info-bar').innerText = "ALL FLIGHTS FINISHED";
-            document.getElementById('list-current').innerHTML = '';
-            document.getElementById('list-next').innerHTML = '';
-            broadcast();
-        }
-
         function updateTimerDisplay() {
-            const m = Math.floor(timeLeft / 60).toString().padStart(2,'0');
-            const s = (timeLeft % 60).toString().padStart(2,'0');
+            const m = Math.floor(timeLeft/60).toString().padStart(2,'0'), s = (timeLeft%60).toString().padStart(2,'0');
             document.getElementById('timer').innerText = `${m}:${s}`;
         }
 
-        function playBeep(freq, duration, delay=0) {
+        function playBeep(f, d, delay=0) {
             if(!audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.frequency.value = freq;
-                const now = audioCtx.currentTime + delay;
-                osc.start(now);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-                osc.stop(now + duration);
-            } catch(e) {}
+            const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.frequency.value = f; const now = audioCtx.currentTime + delay;
+            osc.start(now); g.gain.setValueAtTime(0.3, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + d); osc.stop(now + d);
         }
 
-        // --- REMOTE LOGIC (Secure MQTT) ---
-        function initRemote() { isHost=false; switchView('view-remote-login'); }
-        function connectRemote() {
-            const val = document.getElementById('remote-code-input').value;
-            if(val.length!==4) return;
-            examID = val;
-            document.getElementById('rem-msg').innerText="Connecting...";
-            connectMQTT(examID);
-        }
+        function nextSection() { currentStepIndex++; runStep(); }
+        function togglePause() { isPaused = !isPaused; broadcast(); }
+        function finish() { clearInterval(timerInterval); document.getElementById('main-stage-bg').className='main-stage mode-done'; document.getElementById('status-text').innerText="DONE"; broadcast(); }
 
         function connectMQTT(id) {
-            const clientId = (isHost?"host_":"rem_") + Math.random().toString(16).substr(2,8);
-            client = new Paho.MQTT.Client(BROKER, PORT, "/mqtt", clientId);
-
-            client.onConnectionLost = (o) => {
-                if(isHost) {
-                    document.getElementById('conn-txt').innerText = "Reconnecting...";
-                    document.getElementById('conn-dot').className = "conn-dot dot-red";
-                } else {
-                    document.getElementById('rem-msg').innerText = "Connection lost";
-                }
-                setTimeout(()=>connectMQTT(id), 2500);
-            };
-
+            client = new Paho.MQTT.Client(BROKER, PORT, "/mqtt", "osce_" + Math.random().toString(16).substr(2,8));
             client.onMessageArrived = (msg) => {
                 const d = JSON.parse(msg.payloadString);
-                if(isHost) {
-                    // Host Command from Remote
-                    if(d.act === 'CLICK') { 
-                        if(document.getElementById('action-btn').style.display !== 'none') {
-                            nextSection();
-                        }
-                    }
-                    if(d.act === 'PAUSE') togglePause();
-                } else {
-                    // Remote Status from Host
-                    switchView('view-remote');
-                    document.getElementById('rem-lbl').innerText = d.lbl;
-                    document.getElementById('rem-time').innerText = d.time;
-                    document.getElementById('rem-bg').style.background = d.col; // Sync color
-                }
+                if(isHost) { if(d.act==='CLICK') nextSection(); if(d.act==='PAUSE') togglePause(); }
+                else { switchView('view-remote'); document.getElementById('rem-lbl').innerText=d.lbl; document.getElementById('rem-time').innerText=d.time; document.getElementById('rem-bg').style.background=d.col; }
             };
-
-            client.connect({
-                useSSL: true,
-                onSuccess: () => {
-                    if(isHost) {
-                        document.getElementById('conn-txt').innerText = "Online";
-                        document.getElementById('conn-dot').className = "conn-dot dot-green";
-                        client.subscribe(`osce/${id}/cmd`);
-                    } else {
-                        client.subscribe(`osce/${id}/state`);
-                        switchView('view-remote');
-                    }
-                },
-                onFailure: (e) => {
-                    if(isHost) {
-                        document.getElementById('conn-txt').innerText = "Error (Retrying)";
-                        document.getElementById('conn-dot').className = "conn-dot dot-red";
-                        setTimeout(()=>connectMQTT(id), 3000);
-                    } else {
-                        document.getElementById('rem-msg').innerText = "Failed: " + e.errorMessage;
-                    }
-                }
-            });
+            client.connect({ useSSL: true, onSuccess: () => {
+                document.getElementById('conn-txt').innerText = "Online"; document.getElementById('conn-dot').className="conn-dot dot-green";
+                client.subscribe(isHost ? `osce/${id}/cmd` : `osce/${id}/state`);
+                if(!isHost) switchView('view-remote');
+            }});
         }
 
         function broadcast() {
-            if(!isHost || !client || !client.isConnected()) return;
-            const bg = window.getComputedStyle(document.getElementById('main-stage-bg')).backgroundColor;
-            const msg = {
-                lbl: document.getElementById('status-text').innerText,
-                time: document.getElementById('timer').innerText,
-                col: bg
-            };
-            const m = new Paho.MQTT.Message(JSON.stringify(msg));
-            m.destinationName = `osce/${examID}/state`;
-            m.retained = true;
-            client.send(m);
+            if(!isHost || !client?.isConnected()) return;
+            const msg = { lbl: document.getElementById('status-text').innerText, time: document.getElementById('timer').innerText, col: window.getComputedStyle(document.getElementById('main-stage-bg')).backgroundColor };
+            const m = new Paho.MQTT.Message(JSON.stringify(msg)); m.destinationName = `osce/${examID}/state`; m.retained = true; client.send(m);
         }
 
-        function sendCmd(act) {
-            if(!client || !client.isConnected()) return alert("Disconnected");
-            const m = new Paho.MQTT.Message(JSON.stringify({ act }));
-            m.destinationName = `osce/${examID}/cmd`;
-            client.send(m);
-            if(navigator.vibrate) navigator.vibrate(50);
-        }
+        function sendCmd(act) { const m = new Paho.MQTT.Message(JSON.stringify({act})); m.destinationName = `osce/${examID}/cmd`; client.send(m); }
+        function initRemote() { isHost=false; switchView('view-remote-login'); }
+        function connectRemote() { examID = document.getElementById('remote-code-input').value; connectMQTT(examID); }
     </script>
 </body>
 </html>
