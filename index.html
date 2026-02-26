@@ -11,7 +11,7 @@
             --accent: #2563eb; --green: #10b981; --amber: #f59e0b; --red: #ef4444;
             
             /* Logic Colors from your file */
-            --prep-color: #d97706; --station-color: #059669; --move-color: #2563eb;
+            --prep-color: #d97706; --station-color: #059669; --feedback-color: #7e22ce; --move-color: #2563eb;
             --ready-color: #374151; --standby-color: #0f172a; --stop-color: #b91c1c;
             --intermission-color: #111; --extra-prep: #7c2d12; --extra-station: #064e3b;
             
@@ -68,7 +68,8 @@
         /* Phases */
         .mode-standby { background: var(--standby-color); } .mode-ready { background: var(--ready-color); }
         .mode-prep { background: var(--prep-color); } .mode-station { background: var(--station-color); }
-        .mode-move { background: var(--move-color); } .mode-intermission { background: var(--intermission-color); }
+        .mode-feedback { background: var(--feedback-color); } .mode-move { background: var(--move-color); } 
+        .mode-intermission { background: var(--intermission-color); }
         .mode-et-prep { background: var(--extra-prep); } .mode-et-station { background: var(--extra-station); }
         .mode-done { background: var(--stop-color); }
 
@@ -115,7 +116,7 @@
     <div id="view-setup" class="view">
         <div class="card">
             <h2>Student Data</h2>
-            <textarea id="paste-area" placeholder="ET     Noah    Bansal     Red&#10;        Nargis  Abarok     Green"></textarea>
+            <textarea id="paste-area" placeholder="ET    Noah    Bansal      Red&#10;        Nargis  Abarok      Green"></textarea>
             <button class="btn-full" style="background:#4b5563; font-size:1rem; padding:10px; width:auto;" onclick="analyze()">Analyze</button>
             <span id="analysis-summary" style="color:#aaa; margin-left:10px;"></span>
         </div>
@@ -124,6 +125,7 @@
             <div class="config-grid">
                 <div><label>Prep Time</label><div class="input-wrapper" style="display:flex; gap:5px;"><input type="number" id="val-prep" value="1"><select id="unit-prep"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
                 <div><label>Station Time</label><div class="input-wrapper" style="display:flex; gap:5px;"><input type="number" id="val-station" value="7"><select id="unit-station"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
+                <div><label>Feedback Time</label><div class="input-wrapper" style="display:flex; gap:5px;"><input type="number" id="val-feedback" value="0"><select id="unit-feedback"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
                 <div><label>Move Time</label><div class="input-wrapper" style="display:flex; gap:5px;"><input type="number" id="val-move" value="1"><select id="unit-move"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
                 <div><label>Lead-In (Start)</label><input type="number" id="val-leadin" value="10"></div>
                 <div><label>Max Capacity</label><input type="number" id="capacity" value="12"></div>
@@ -293,12 +295,14 @@
                 
                 const basePrep = getSeconds('val-prep', 'unit-prep');
                 const baseStation = getSeconds('val-station', 'unit-station');
+                const baseFeedback = getSeconds('val-feedback', 'unit-feedback');
                 const baseMove = getSeconds('val-move', 'unit-move');
                 const leadIn = parseFloat(document.getElementById('val-leadin').value) || 10;
                 const stationsCount = parseInt(document.getElementById('stations-count').value) || 4;
 
                 const etPrep = basePrep * 1.25;
                 const etStation = baseStation * 1.25;
+                const etFeedback = baseFeedback * 1.25;
 
                 schedule = [];
 
@@ -324,6 +328,11 @@
                     for(let s = 1; s <= stationsCount; s++) {
                         schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'PREP', duration: etPrep, label: 'PREPARATION', sub: `EXTRA TIME FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-et-prep' });
                         schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'STATION', duration: etStation, label: 'STATION', sub: `EXTRA TIME FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-et-station' });
+                        
+                        if (baseFeedback > 0) {
+                            schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'FEEDBACK', duration: etFeedback, label: 'FEEDBACK', sub: `EXTRA TIME FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-feedback' });
+                        }
+
                         schedule.push({ type: 'ET', flightIndex: flight, stationNum: s, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
                     }
                     
@@ -342,6 +351,11 @@
                     for(let s = 1; s <= stationsCount; s++) {
                         schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'PREP', duration: basePrep, label: 'PREPARATION', sub: `STANDARD FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-prep' });
                         schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'STATION', duration: baseStation, label: 'STATION', sub: `STANDARD FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-station' });
+                        
+                        if (baseFeedback > 0) {
+                            schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `STANDARD FLIGHT ${flight+1} - STATION ${s}`, colorClass: 'mode-feedback' });
+                        }
+
                         schedule.push({ type: 'STD', flightIndex: flight, stationNum: s, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
                     }
 
@@ -393,6 +407,7 @@
 
             if (step.phase === 'STATION') { playBeep(800, 0.15, 0); playBeep(800, 0.4, 0.2); } 
             else if (step.phase === 'PREP') { playBeep(440, 0.6); }
+            else if (step.phase === 'FEEDBACK') { playBeep(700, 0.4); } 
             else if (step.phase === 'MOVE') { playBeep(600, 0.3); }
 
             clearInterval(timerInterval);
