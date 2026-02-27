@@ -249,24 +249,28 @@
             schedule = [{ type: 'STANDBY', phase: 'WAIT', duration: 0, label: 'WELCOME', sub: 'WAITING TO START', colorClass: 'mode-standby', nextType: (counts.etFlights > 0) ? 'ET' : 'STD', nextIdx: 0 }];
             if(leadIn > 0) schedule.push({ type: 'LEAD_IN', phase: 'READY', duration: leadIn, label: 'GET READY', sub: 'EXAM STARTING', colorClass: 'mode-ready', nextType: (counts.etFlights > 0) ? 'ET' : 'STD', nextIdx: 0 });
 
-            const createFlight = (type, fIdx, countsObj) => {
+            const createFlight = (type, fIdx) => {
                 const isET = type === 'ET';
                 const mult = isET ? 1.25 : 1;
                 for(let s = 1; s <= stationsCount; s++) {
+                    // Prep and Station scale for ET
                     schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${type} FLIGHT ${fIdx+1} - STN ${s}`, colorClass: isET ? 'mode-et-prep' : 'mode-prep' });
                     schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${type} FLIGHT ${fIdx+1} - STN ${s}`, colorClass: isET ? 'mode-et-station' : 'mode-station' });
-                    if(baseFeedback > 0) schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'FEEDBACK', duration: baseFeedback * mult, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
+                    
+                    // Feedback stays constant at base duration for all students
+                    if(baseFeedback > 0) schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
+                    
                     schedule.push({ type, flightIndex: fIdx, stationNum: s, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
                 }
             };
 
             for(let f = 0; f < counts.etFlights; f++) {
-                createFlight('ET', f, counts);
+                createFlight('ET', f);
                 if(f + 1 < counts.etFlights) schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'PREPARE NEXT GROUP', colorClass: 'mode-intermission', nextType: 'ET', nextIdx: f+1 });
                 else if(counts.stdFlights > 0) schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'PREPARE NEXT GROUP', colorClass: 'mode-intermission', nextType: 'STD', nextIdx: 0 });
             }
             for(let f = 0; f < counts.stdFlights; f++) {
-                createFlight('STD', f, counts);
+                createFlight('STD', f);
                 if(f + 1 < counts.stdFlights) schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: 'PREPARE NEXT GROUP', colorClass: 'mode-intermission', nextType: 'STD', nextIdx: f+1 });
             }
 
