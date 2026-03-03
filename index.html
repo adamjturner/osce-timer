@@ -27,7 +27,7 @@
 
         /* 1. LANDING */
         #view-landing { align-items: center; justify-content: center; gap: 20px; z-index: 200; background: var(--bg); }
-        .btn-xl { padding: 25px 40px; font-size: 1.5rem; border: none; border-radius: 12px; width: 90%; max-width: 350px; font-weight: bold; cursor: pointer; color: white; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s; }
+        .btn-xl { padding: 25px 40px; font-size: 1.5rem; border: none; border-radius: 12px; width: 90%; max-width: 350px; font-weight: bold; cursor: pointer; color: white; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s; white-space: nowrap; }
         .btn-host { background: var(--accent); box-shadow: 0 4px 15px rgba(37,99,235,0.4); }
         .btn-remote { background: var(--green); box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
         .btn-xl:active { transform: scale(0.98); }
@@ -36,7 +36,7 @@
         #view-setup { padding: 40px; max-width: 900px; margin: 0 auto; width: 100%; overflow-y: auto; }
         .card { background: var(--surf); padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         h2 { margin-top: 0; font-weight: 300; border-bottom: 1px solid #444; padding-bottom: 10px; }
-        textarea { width: 100%; height: 120px; background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 10px; font-family: monospace; border-radius: 4px; }
+        textarea { width: 100%; height: 120px; background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 10px; font-family: monospace; border-radius: 4px; white-space: pre; }
         .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
         label { display: block; color: #aaa; font-size: 0.85rem; margin-bottom: 5px; }
         input, select { background: #333; border: 1px solid #555; color: white; padding: 10px; width: 100%; border-radius: 6px; }
@@ -74,7 +74,7 @@
         #action-btn { display: none; margin-top: 30px; font-size: 2rem; padding: 20px 60px; background: white; color: black; border: none; border-radius: 50px; cursor: pointer; animation: pulse 2s infinite; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 100; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-       /* CENTRALIZED HOST CODE */
+        /* CENTRALIZED HOST CODE */
         #host-code-display {
             position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9999;
             background: rgba(0,0,0,0.85); padding: 5px 15px; border-radius: 8px;
@@ -112,7 +112,7 @@
     <div id="view-setup" class="view">
         <div class="card">
             <h2>Student Data</h2>
-            <textarea id="paste-area" placeholder="ET    Noah    Bansal      Red&#10;        Nargis  Abarok      Green"></textarea>
+            <textarea id="paste-area" placeholder="ET&#9;Student&#9;Surname&#9;Red&#10;&#9;Forename&#9;Student&#9;Red"></textarea>
             <button class="btn-full" style="background:#4b5563; font-size:1rem; padding:10px; width:auto;" onclick="analyze()">Analyze</button>
             <span id="analysis-summary" style="color:#aaa; margin-left:10px;"></span>
         </div>
@@ -227,7 +227,7 @@
                 lines.forEach((line, index) => {
                     const rawTokens = line.replace(/\r/g, '').split('\t').map(t => t.trim());
                     if (rawTokens.join('').length === 0) return;
-                    let group = "Unknown", groupIndex = -1;
+                    let group = "", groupIndex = -1; // Changed from "Unknown"
                     for (let i = rawTokens.length - 1; i >= 0; i--) {
                         if (colorTriggers.some(c => rawTokens[i].toLowerCase().includes(c))) {
                             group = rawTokens[i]; groupIndex = i; break;
@@ -350,13 +350,14 @@
                 li.className = `student-item ${c}`;
                 
                 let skipHtml = showSkipBtn ? `<button class="skip-btn" onclick="skipStudent('${s.id}')" title="Skip/Absent">✕</button>` : '';
+                let groupHtml = s.group ? `<span class="group-tag">${s.group}</span>` : '';
                 
                 li.innerHTML = `
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${skipHtml}
                         <span>${s.name}</span>
                     </div>
-                    <span class="group-tag">${s.group}</span>
+                    ${groupHtml}
                 `;
                 list.appendChild(li);
             });
@@ -454,5 +455,3 @@
     </script>
 </body>
 </html>
-
-
