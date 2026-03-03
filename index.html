@@ -76,17 +76,17 @@
 
        /* CENTRALIZED HOST CODE */
         #host-code-display {
-            position: fixed; top: 20px; right: 20px; z-index: 9999;
-            background: rgba(0,0,0,0.85); padding: 10px 20px; border-radius: 8px;
-            border: 1px solid #333; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9999;
+            background: rgba(0,0,0,0.85); padding: 5px 15px; border-radius: 8px;
+            border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             display: none; backdrop-filter: blur(5px); text-align: center;
         }
-        .code-title { font-size: 0.65rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-        .code-val { font-size: 1.6rem; font-weight: 800; font-family: monospace; color: var(--accent); letter-spacing: 2px; line-height: 1; }
-        .conn-row { display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #666; margin-top: 4px; gap: 6px; }
-        .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; display: inline-block; }
-        .conn-dot.dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
-        .conn-dot.dot-red { background: var(--red); box-shadow: 0 0 5px var(--red); }
+        .code-title { font-size: 0.55rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0px; }
+        .code-val { font-size: 1.2rem; font-weight: 800; font-family: monospace; color: var(--accent); letter-spacing: 2px; line-height: 1.2; }
+        .conn-row { display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: #666; margin-top: 2px; gap: 4px; }
+        .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #444; display: inline-block; }
+        .conn-dot.dot-green { background: var(--green); box-shadow: 0 0 4px var(--green); }
+        .conn-dot.dot-red { background: var(--red); box-shadow: 0 0 4px var(--red); }
 
         /* REMOTE VIEWS */
         #view-remote-login { align-items: center; justify-content: center; padding: 20px; }
@@ -454,4 +454,5 @@
     </script>
 </body>
 </html>
+
 
