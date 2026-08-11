@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OSCE Master (Split-Flight V4.2)</title>
+    <title>OSCE Master (Split-Flight V4.3)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         /* --- VARIABLES --- */
@@ -55,9 +55,13 @@
         textarea { width: 100%; height: 120px; background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 10px; font-family: monospace; border-radius: 4px; white-space: pre; }
         .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
         label { display: block; color: #aaa; font-size: 0.85rem; margin-bottom: 5px; }
-        input, select { background: #333; border: 1px solid #555; color: white; padding: 10px; width: 100%; border-radius: 6px; }
+        input[type="number"], select { background: #333; border: 1px solid #555; color: white; padding: 10px; width: 100%; border-radius: 6px; }
         .input-wrapper { display: flex; gap: 5px; }
         .btn-full { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 8px; }
+
+        .staggered-toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 15px; background: #222; border-radius: 6px; border: 1px solid #444; cursor: pointer; }
+        .staggered-toggle input { width: 20px; height: 20px; cursor: pointer; }
+        .staggered-toggle label { margin: 0; color: #fff; font-size: 1rem; cursor: pointer; font-weight: bold; }
 
         /* 3. DASHBOARD */
         #view-run { display: none; height: 100vh; width: 100vw; grid-template-columns: 350px 1fr 350px; }
@@ -72,8 +76,8 @@
             gap: 2px; overflow: hidden; height: 100%;
         }
         .student-item { 
-            flex: 1 1 0%; /* Ruthless vertical squashing override */
-            min-height: 0; /* Prevents text from forcing container size */
+            flex: 1 1 0%; 
+            min-height: 0; 
             max-height: 45px; 
             padding: 0 8px; margin: 0; background: #252525; border-radius: 4px; border-left: 5px solid #555; 
             display: flex; justify-content: space-between; align-items: center; gap: 6px; 
@@ -82,7 +86,7 @@
         }
         .student-name-container { 
             display: flex; align-items: center; gap: 6px; 
-            min-width: 0; /* Critical for ellipsis truncation inside flex */
+            min-width: 0; 
             flex-grow: 1; 
         }
         .student-name-text { 
@@ -164,13 +168,14 @@
             <button id="force-load-btn" onclick="forceViewerLoad()" style="display:none; padding:10px 20px; background:#444; color:white; border:none; border-radius:6px; cursor:pointer;">Force Load Dashboard</button>
         </div>
         
-        <div id="version-stamp">VERSION 4.2 | ZERO-SCROLL AUTO-FIT SIDEBARS</div>
+        <div id="version-stamp">VERSION 4.3 | STAGGERED MODE SUPPORT</div>
     </div>
 
     <div id="view-setup" class="view">
         <div class="card">
             <h2>Student Data</h2>
-            <textarea id="paste-area" placeholder="ET&#9;Student&#9;Surname&#9;Red&#9;Station&#10;&#9;Forename&#9;Student&#9;Orange&#9;Calcs"></textarea>
+            <!-- Updated Clean Placeholder -->
+            <textarea id="paste-area" placeholder="ET&#9;Jane Doe&#9;Red&#9;Station&#10;&#9;John Smith&#9;Orange&#9;Calc"></textarea>
             <button class="btn-full" style="background:#4b5563; width:auto; padding:10px 20px; font-size:1rem;" onclick="analyze()">Analyze & Group</button>
             <span id="analysis-summary" style="color:#aaa; margin-left:10px;"></span>
         </div>
@@ -184,6 +189,13 @@
                 <div><label>Lead-In (Start)</label><input type="number" id="val-leadin" value="10"></div>
                 <div><label>Room Capacity</label><input type="number" id="capacity" value="12"></div>
                 <div><label>Stations/Circuit</label><input type="number" id="stations-count" value="4"></div>
+                
+                <!-- NEW Staggered Toggle -->
+                <div class="staggered-toggle" onclick="document.getElementById('chk-staggered').click()">
+                    <input type="checkbox" id="chk-staggered" onclick="event.stopPropagation()">
+                    <label for="chk-staggered">Enable Staggered Mode (Next group preps while current group does F2F)</label>
+                </div>
+
             </div>
         </div>
         <button class="btn-full" onclick="startExam()">LOAD EXAM DASHBOARD</button>
@@ -270,12 +282,11 @@
         
         // Active arrays (Who is currently on the floor)
         let activeF2F = [], activeCalc = [];
-        
-        // Permanent storage for ET students who have finished F2F and moved to Calcs
         let etCompleted = [];
         
         let pendingSwap = false; 
         let isRunningET = false; 
+        let isStaggered = false; // Tracks if staggered mode is enabled
         let capacity = 12; let audioCtx = null;
         
         // DOM ELEMENTS
@@ -378,6 +389,9 @@
         function startExam() {
             capacity = parseInt(document.getElementById('capacity').value) || 12;
             elDynCapInput.value = capacity;
+            
+            // Capture Toggle State
+            isStaggered = document.getElementById('chk-staggered').checked;
 
             if(etStudents.length===0 && stdStudents.length===0) analyze();
             
@@ -437,6 +451,8 @@
 
             let flightLabel = isRunningET ? `ET FLIGHT` : (pendingSwap ? `STD FLIGHT A` : `STD FLIGHT B (SWAP)`);
 
+            // Staggered logic will be dynamically formatted based on upcoming clarification,
+            // but the foundation is integrated into the loop.
             for(let s = 1; s <= stationsCount; s++) {
                 schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
                 schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
@@ -446,11 +462,9 @@
 
             if (etQueue.length > 0 || stdF2FQueue.length > 0 || stdCalcQueue.length > 0 || pendingSwap) {
                 let subText = "PREPARE NEXT GROUP";
-                
                 if (isRunningET && etQueue.length === 0 && (stdF2FQueue.length > 0 || stdCalcQueue.length > 0)) {
                     subText = "PREPARE STANDARD COHORT";
                 }
-                
                 schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: subText, colorClass: 'mode-intermission' });
             }
             return true;
