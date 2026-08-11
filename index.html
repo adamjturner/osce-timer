@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OSCE Master (Split-Flight V4.3)</title>
+    <title>OSCE Master (Split-Flight V4.4)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         /* --- VARIABLES --- */
@@ -59,7 +59,8 @@
         .input-wrapper { display: flex; gap: 5px; }
         .btn-full { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 8px; }
 
-        .staggered-toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 15px; background: #222; border-radius: 6px; border: 1px solid #444; cursor: pointer; }
+        .staggered-toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 15px; background: #222; border-radius: 6px; border: 1px solid #444; cursor: pointer; transition: background 0.2s; }
+        .staggered-toggle:hover { background: #2a2a2a; }
         .staggered-toggle input { width: 20px; height: 20px; cursor: pointer; }
         .staggered-toggle label { margin: 0; color: #fff; font-size: 1rem; cursor: pointer; font-weight: bold; }
 
@@ -67,9 +68,10 @@
         #view-run { display: none; height: 100vh; width: 100vw; grid-template-columns: 350px 1fr 350px; }
         .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
         .sidebar-right { border-right: none; border-left: 1px solid var(--border); }
-        .sb-header { margin: 0; padding: 15px; text-transform: uppercase; font-size: 1rem; color: #888; border-bottom: 1px solid #333; text-align: center; background: #161616; flex-shrink: 0; letter-spacing: 1px; }
+        .sb-header { margin: 0; padding: 15px; text-transform: uppercase; font-size: 1rem; color: #888; border-bottom: 1px solid #333; text-align: center; background: #161616; flex-shrink: 0; letter-spacing: 1px; transition: color 0.3s; }
+        .header-highlight { color: var(--amber); font-weight: bold; }
         
-        /* ZERO-SCROLL AUTO-FIT LISTS (BULLETPROOFED) */
+        /* ZERO-SCROLL AUTO-FIT LISTS */
         .student-list { 
             list-style: none; padding: 4px; margin: 0; 
             flex-grow: 1; display: flex; flex-direction: column; 
@@ -168,13 +170,12 @@
             <button id="force-load-btn" onclick="forceViewerLoad()" style="display:none; padding:10px 20px; background:#444; color:white; border:none; border-radius:6px; cursor:pointer;">Force Load Dashboard</button>
         </div>
         
-        <div id="version-stamp">VERSION 4.3 | STAGGERED MODE SUPPORT</div>
+        <div id="version-stamp">VERSION 4.4 | STAGGERED UI & TIMER LOGIC</div>
     </div>
 
     <div id="view-setup" class="view">
         <div class="card">
             <h2>Student Data</h2>
-            <!-- Updated Clean Placeholder -->
             <textarea id="paste-area" placeholder="ET&#9;Jane Doe&#9;Red&#9;Station&#10;&#9;John Smith&#9;Orange&#9;Calc"></textarea>
             <button class="btn-full" style="background:#4b5563; width:auto; padding:10px 20px; font-size:1rem;" onclick="analyze()">Analyze & Group</button>
             <span id="analysis-summary" style="color:#aaa; margin-left:10px;"></span>
@@ -190,12 +191,10 @@
                 <div><label>Room Capacity</label><input type="number" id="capacity" value="12"></div>
                 <div><label>Stations/Circuit</label><input type="number" id="stations-count" value="4"></div>
                 
-                <!-- NEW Staggered Toggle -->
                 <div class="staggered-toggle" onclick="document.getElementById('chk-staggered').click()">
                     <input type="checkbox" id="chk-staggered" onclick="event.stopPropagation()">
                     <label for="chk-staggered">Enable Staggered Mode (Next group preps while current group does F2F)</label>
                 </div>
-
             </div>
         </div>
         <button class="btn-full" onclick="startExam()">LOAD EXAM DASHBOARD</button>
@@ -280,13 +279,13 @@
         // Master queues
         let etQueue = [], stdF2FQueue = [], stdCalcQueue = [];
         
-        // Active arrays (Who is currently on the floor)
+        // Active arrays
         let activeF2F = [], activeCalc = [];
         let etCompleted = [];
         
         let pendingSwap = false; 
         let isRunningET = false; 
-        let isStaggered = false; // Tracks if staggered mode is enabled
+        let isStaggered = false; 
         let capacity = 12; let audioCtx = null;
         
         // DOM ELEMENTS
@@ -310,11 +309,9 @@
             const txt = document.getElementById('conn-txt');
             if (!ind || !txt) return;
             if(connected) { 
-                ind.className = 'conn-dot dot-green'; 
-                txt.innerText = "Online"; txt.style.color = "var(--green)"; 
+                ind.className = 'conn-dot dot-green'; txt.innerText = "Online"; txt.style.color = "var(--green)"; 
             } else { 
-                ind.className = 'conn-dot dot-red'; 
-                txt.innerText = msg || "Offline"; txt.style.color = "var(--red)"; 
+                ind.className = 'conn-dot dot-red'; txt.innerText = msg || "Offline"; txt.style.color = "var(--red)"; 
             }
         }
 
@@ -322,12 +319,8 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             if(id === 'view-run') document.getElementById('view-run').style.display='grid';
-            
-            if(id === 'view-setup' || id === 'view-run') {
-                document.getElementById('host-code-display').style.display = 'block';
-            } else {
-                document.getElementById('host-code-display').style.display = 'none';
-            }
+            if(id === 'view-setup' || id === 'view-run') document.getElementById('host-code-display').style.display = 'block';
+            else document.getElementById('host-code-display').style.display = 'none';
         }
 
         function initHost() { isHost = true; examID = Math.floor(1000 + Math.random() * 9000).toString(); document.getElementById('code-val').innerText = examID; document.getElementById('pip-btn').style.display = 'none'; switchView('view-setup'); connectMQTT(examID); }
@@ -390,7 +383,6 @@
             capacity = parseInt(document.getElementById('capacity').value) || 12;
             elDynCapInput.value = capacity;
             
-            // Capture Toggle State
             isStaggered = document.getElementById('chk-staggered').checked;
 
             if(etStudents.length===0 && stdStudents.length===0) analyze();
@@ -413,7 +405,6 @@
 
         function buildNextFlightSteps() {
             let cap = parseInt(elDynCapInput.value) || capacity;
-            
             isRunningET = etQueue.length > 0;
             
             if (!isRunningET && stdF2FQueue.length === 0 && stdCalcQueue.length === 0 && !pendingSwap) return false;
@@ -451,11 +442,21 @@
 
             let flightLabel = isRunningET ? `ET FLIGHT` : (pendingSwap ? `STD FLIGHT A` : `STD FLIGHT B (SWAP)`);
 
-            // Staggered logic will be dynamically formatted based on upcoming clarification,
-            // but the foundation is integrated into the loop.
             for(let s = 1; s <= stationsCount; s++) {
-                schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
-                schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                
+                // STAGGERED LOGIC TRIGGER
+                if (isStaggered) {
+                    // Only station 1 gets a dedicated prep time (to let the first group read)
+                    if (s === 1) {
+                        schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'INITIAL PREP', sub: `FIRST GROUP: READ PREP AT DOOR`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
+                    }
+                    schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION & PREP', sub: `STN ${s} | CURRENT: PERFORM STATION ➔ NEXT: READ PREP`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                } else {
+                    // Standard logic
+                    schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
+                    schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                }
+
                 if(baseFeedback > 0) schedule.push({ type, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
                 schedule.push({ type, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
             }
@@ -494,7 +495,7 @@
                 targetTime = null; elTimer.innerText = "--:--";
                 if (isHost) {
                     elActionBtn.style.display = 'inline-block'; 
-                    elActionBtn.innerText = (step.phase === 'WAIT') ? "BEGIN EXAM" : (step.sub.includes("SWAP") ? "START SWAP RUN" : "START FLIGHT");
+                    elActionBtn.innerText = (step.phase === 'WAIT') ? "BEGIN EXAM" : "START FLIGHT";
                     elDynCapContainer.style.display = 'block';
                 } else {
                     elActionBtn.style.display = 'none'; elDynCapContainer.style.display = 'none';
@@ -576,9 +577,13 @@
 
             let leftArr = [], rightArr = [];
             
+            // Dynamic right sidebar header based on Staggered mode
+            let rightHeader = isStaggered && !isPausable && step.phase === 'STATION' ? "Up Next (Reading Prep)" : "Up Next";
+            let leftHeader = "Current";
+            
             if (isPausable) {
-                document.getElementById('lbl-left').innerText = "On Deck";
-                document.getElementById('lbl-right').innerText = "Up Next";
+                leftHeader = "On Deck";
+                rightHeader = "Up Next";
                 
                 if (etQueue.length > 0) {
                     leftArr = tagList(etQueue.slice(0, cap), 'Station');
@@ -595,8 +600,7 @@
                     }
                 }
             } else {
-                document.getElementById('lbl-left').innerText = "Current";
-                document.getElementById('lbl-right').innerText = "Up Next";
+                leftHeader = "Current";
                 
                 if (isRunningET) {
                     leftArr = tagList(activeF2F, 'Station');
@@ -613,6 +617,14 @@
                 }
             }
             
+            document.getElementById('lbl-left').innerText = leftHeader;
+            
+            // Highlight right header if they are actively reading prep
+            let rLbl = document.getElementById('lbl-right');
+            rLbl.innerText = rightHeader;
+            if (rightHeader.includes('Prep')) rLbl.classList.add('header-highlight');
+            else rLbl.classList.remove('header-highlight');
+
             // Render finished ET students on the left sidebar continuously while they do Calcs
             if (etCompleted.length > 0) {
                 leftArr = [...leftArr, ...tagList(etCompleted, 'Calc')];
@@ -682,7 +694,13 @@
                         if(pipWindow) pipWindow.document.body.className = colClass;
                         document.getElementById('list-current').innerHTML = d.sbL; document.getElementById('list-next').innerHTML = d.sbR;
                         document.getElementById('lbl-left').innerText = d.sbLTitle; document.getElementById('lbl-right').innerText = d.sbRTitle;
+                        
+                        let rLbl = document.getElementById('lbl-right');
+                        if (d.sbRTitle.includes('Prep')) rLbl.classList.add('header-highlight');
+                        else rLbl.classList.remove('header-highlight');
+
                         if(elActionBtn) elActionBtn.style.display = 'none'; if(elDynCapContainer) elDynCapContainer.style.display = 'none';
+                        if(elPauseBtnPc) elPauseBtnPc.style.display = 'none';
                     }
                 }
             };
