@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OSCE Master (Split-Flight V4.4)</title>
+    <title>OSCE Master (Split-Flight V5.2)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         /* --- VARIABLES --- */
@@ -68,33 +68,18 @@
         #view-run { display: none; height: 100vh; width: 100vw; grid-template-columns: 350px 1fr 350px; }
         .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
         .sidebar-right { border-right: none; border-left: 1px solid var(--border); }
-        .sb-header { margin: 0; padding: 15px; text-transform: uppercase; font-size: 1rem; color: #888; border-bottom: 1px solid #333; text-align: center; background: #161616; flex-shrink: 0; letter-spacing: 1px; transition: color 0.3s; }
-        .header-highlight { color: var(--amber); font-weight: bold; }
+        .sb-header { margin: 0; padding: 15px; text-transform: uppercase; font-size: 1rem; color: #888; border-bottom: 1px solid #333; text-align: center; background: #161616; flex-shrink: 0; letter-spacing: 1px; }
         
         /* ZERO-SCROLL AUTO-FIT LISTS */
-        .student-list { 
-            list-style: none; padding: 4px; margin: 0; 
-            flex-grow: 1; display: flex; flex-direction: column; 
-            gap: 2px; overflow: hidden; height: 100%;
-        }
-        .student-item { 
-            flex: 1 1 0%; 
-            min-height: 0; 
-            max-height: 45px; 
-            padding: 0 8px; margin: 0; background: #252525; border-radius: 4px; border-left: 5px solid #555; 
-            display: flex; justify-content: space-between; align-items: center; gap: 6px; 
-            font-size: clamp(0.6rem, 1.8vh, 1rem); 
-            overflow: hidden; 
-        }
-        .student-name-container { 
-            display: flex; align-items: center; gap: 6px; 
-            min-width: 0; 
-            flex-grow: 1; 
-        }
-        .student-name-text { 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-        }
+        .student-list { list-style: none; padding: 4px; margin: 0; flex-grow: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; height: 100%; }
         
+        /* THE NEW LIST DIVIDERS */
+        .list-divider { flex: 0 0 auto; text-align: center; font-size: 0.75rem; font-weight: 800; color: #bbb; padding: 4px 0; border-bottom: 1px solid #444; margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; background: transparent; }
+        .list-divider:first-child { margin-top: 0; }
+
+        .student-item { flex: 1 1 0%; min-height: 0; max-height: 45px; padding: 0 8px; margin: 0; background: #252525; border-radius: 4px; border-left: 5px solid #555; display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: clamp(0.6rem, 1.8vh, 1rem); overflow: hidden; }
+        .student-name-container { display: flex; align-items: center; gap: 6px; min-width: 0; flex-grow: 1; }
+        .student-name-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .group-tag { font-size: clamp(0.55rem, 1.2vh, 0.75rem); font-weight: bold; text-transform: uppercase; padding: 2px 4px; border-radius: 3px; background: #444; color: #ddd; min-width: 40px; text-align: center; white-space: nowrap; flex-shrink: 0; }
         
         /* Group Colors */
@@ -170,7 +155,7 @@
             <button id="force-load-btn" onclick="forceViewerLoad()" style="display:none; padding:10px 20px; background:#444; color:white; border:none; border-radius:6px; cursor:pointer;">Force Load Dashboard</button>
         </div>
         
-        <div id="version-stamp">VERSION 4.4 | STAGGERED UI & TIMER LOGIC</div>
+        <div id="version-stamp">VERSION 5.2 | EXPLICIT WAVE PIPELINE & UI SWAP</div>
     </div>
 
     <div id="view-setup" class="view">
@@ -201,7 +186,7 @@
     </div>
 
     <div id="view-run" class="view">
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar-left">
             <h3 class="sb-header" id="lbl-left">Current</h3>
             <ul id="list-current" class="student-list"></ul>
         </div>
@@ -224,7 +209,7 @@
             <button id="action-btn" onclick="nextSection()">BEGIN</button>
         </div>
 
-        <div class="sidebar sidebar-right">
+        <div class="sidebar sidebar-right" id="sidebar-right">
             <h3 class="sb-header" id="lbl-right">Up Next</h3>
             <ul id="list-next" class="student-list"></ul>
         </div>
@@ -279,8 +264,10 @@
         // Master queues
         let etQueue = [], stdF2FQueue = [], stdCalcQueue = [];
         
-        // Active arrays
-        let activeF2F = [], activeCalc = [];
+        // Active arrays (Wave 1 and Wave 2 explicitly defined)
+        let activeF2F = []; // WAVE 1 (Starts inside)
+        let activePrep = []; // WAVE 2 (Starts outside)
+        let activeCalc = [];
         let etCompleted = [];
         
         let pendingSwap = false; 
@@ -308,11 +295,8 @@
             const ind = document.getElementById('conn-dot'); 
             const txt = document.getElementById('conn-txt');
             if (!ind || !txt) return;
-            if(connected) { 
-                ind.className = 'conn-dot dot-green'; txt.innerText = "Online"; txt.style.color = "var(--green)"; 
-            } else { 
-                ind.className = 'conn-dot dot-red'; txt.innerText = msg || "Offline"; txt.style.color = "var(--red)"; 
-            }
+            if(connected) { ind.className = 'conn-dot dot-green'; txt.innerText = "Online"; txt.style.color = "var(--green)"; } 
+            else { ind.className = 'conn-dot dot-red'; txt.innerText = msg || "Offline"; txt.style.color = "var(--red)"; }
         }
 
         function switchView(id) {
@@ -382,7 +366,6 @@
         function startExam() {
             capacity = parseInt(document.getElementById('capacity').value) || 12;
             elDynCapInput.value = capacity;
-            
             isStaggered = document.getElementById('chk-staggered').checked;
 
             if(etStudents.length===0 && stdStudents.length===0) analyze();
@@ -392,7 +375,7 @@
             stdCalcQueue = stdStudents.filter(s => s.startPos === 'CALC');
             
             pendingSwap = false;
-            activeF2F = []; activeCalc = [];
+            activeF2F = []; activePrep = []; activeCalc = [];
             etCompleted = [];
 
             schedule = [{ type: 'STANDBY', phase: 'WAIT', duration: 0, label: 'WELCOME', sub: 'WAITING TO START', colorClass: 'mode-standby' }];
@@ -405,6 +388,19 @@
 
         function buildNextFlightSteps() {
             let cap = parseInt(elDynCapInput.value) || capacity;
+            
+            // EXPLICIT ET CAPTURE/CLEAR
+            if (activeF2F.length > 0 && activeF2F[0].isET) {
+                etCompleted.push(...activeF2F);
+                if (activePrep.length > 0 && activePrep[0].isET) etCompleted.push(...activePrep);
+            }
+            if (activeF2F.length > 0 && !activeF2F[0].isET) {
+                etCompleted = [];
+            }
+
+            let oldF2F = [...activeF2F];
+            let oldPrep = [...activePrep];
+
             isRunningET = etQueue.length > 0;
             
             if (!isRunningET && stdF2FQueue.length === 0 && stdCalcQueue.length === 0 && !pendingSwap) return false;
@@ -412,18 +408,22 @@
             let type = isRunningET ? 'ET' : 'STD';
 
             if (isRunningET) {
-                activeF2F = etQueue.splice(0, cap);
+                activeF2F = etQueue.splice(0, cap); // WAVE 1
+                activePrep = isStaggered ? etQueue.splice(0, cap) : []; // WAVE 2
                 activeCalc = [];
                 pendingSwap = false;
             } else {
                 if (!pendingSwap) {
                     activeF2F = stdF2FQueue.splice(0, cap);
-                    activeCalc = stdCalcQueue.splice(0, cap);
+                    activePrep = isStaggered ? stdF2FQueue.splice(0, cap) : [];
+                    let calcPull = isStaggered ? (cap * 2) : cap;
+                    activeCalc = stdCalcQueue.splice(0, calcPull);
                     pendingSwap = true; 
                 } else {
-                    let temp = activeF2F;
-                    activeF2F = activeCalc;
-                    activeCalc = temp;
+                    let tempCalc = [...activeCalc]; 
+                    activeF2F = tempCalc.splice(0, cap);
+                    activePrep = isStaggered ? tempCalc.splice(0, cap) : [];
+                    activeCalc = [...oldF2F, ...oldPrep]; 
                     pendingSwap = false;
                 }
             }
@@ -442,30 +442,36 @@
 
             let flightLabel = isRunningET ? `ET FLIGHT` : (pendingSwap ? `STD FLIGHT A` : `STD FLIGHT B (SWAP)`);
 
-            for(let s = 1; s <= stationsCount; s++) {
+            // EXPLICIT PIPELINE SCHEDULE PUSH
+            if (isStaggered) {
+                schedule.push({ type, phase: 'PREP_1', duration: basePrep * mult, label: 'INITIAL PREP', sub: `FIRST GROUP: READ PREP AT DOOR`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
+                schedule.push({ type, phase: 'ENTER_1', duration: baseMove, label: 'ENTER', sub: `FIRST GROUP ENTERING`, colorClass: 'mode-move' });
                 
-                // STAGGERED LOGIC TRIGGER
-                if (isStaggered) {
-                    // Only station 1 gets a dedicated prep time (to let the first group read)
-                    if (s === 1) {
-                        schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'INITIAL PREP', sub: `FIRST GROUP: READ PREP AT DOOR`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
-                    }
-                    schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION & PREP', sub: `STN ${s} | CURRENT: PERFORM STATION ➔ NEXT: READ PREP`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
-                } else {
-                    // Standard logic
-                    schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
-                    schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                for(let s = 1; s <= stationsCount; s++) {
+                    schedule.push({ type, phase: 'STATION_1', duration: baseStation * mult, label: 'STATION & PREP', sub: `STN ${s} | CURRENT: PERFORM STATION ➔ NEXT: READ PREP`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                    if(baseFeedback > 0) schedule.push({ type, phase: 'FEEDBACK_1', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK`, colorClass: 'mode-feedback' });
+                    schedule.push({ type, phase: 'MOVE_SWAP', duration: baseMove, label: 'MOVE', sub: `GROUPS SWAP POSITIONS`, colorClass: 'mode-move' });
+                    
+                    let w1sub = (s === stationsCount) ? 'WAVE 1 FINISHED' : `NEXT: READ PREP`;
+                    schedule.push({ type, phase: 'STATION_2', duration: baseStation * mult, label: 'STATION & PREP', sub: `STN ${s} | CURRENT: PERFORM STATION ➔ ${w1sub}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                    if(baseFeedback > 0) schedule.push({ type, phase: 'FEEDBACK_2', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK`, colorClass: 'mode-feedback' });
+                    
+                    let movLbl = (s === stationsCount) ? 'ALL FINISHED' : 'MOVE TO NEXT STATION';
+                    schedule.push({ type, phase: 'MOVE_END', duration: baseMove, label: 'MOVE', sub: movLbl, colorClass: 'mode-move' });
                 }
-
-                if(baseFeedback > 0) schedule.push({ type, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
-                schedule.push({ type, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
+            } else {
+                for(let s = 1; s <= stationsCount; s++) {
+                    schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
+                    schedule.push({ type, phase: 'ENTER', duration: baseMove, label: 'ENTER', sub: `ENTER STATION`, colorClass: 'mode-move' });
+                    schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                    if(baseFeedback > 0) schedule.push({ type, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
+                    schedule.push({ type, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
+                }
             }
 
             if (etQueue.length > 0 || stdF2FQueue.length > 0 || stdCalcQueue.length > 0 || pendingSwap) {
                 let subText = "PREPARE NEXT GROUP";
-                if (isRunningET && etQueue.length === 0 && (stdF2FQueue.length > 0 || stdCalcQueue.length > 0)) {
-                    subText = "PREPARE STANDARD COHORT";
-                }
+                if (isRunningET && etQueue.length === 0 && (stdF2FQueue.length > 0 || stdCalcQueue.length > 0)) subText = "PREPARE STANDARD COHORT";
                 schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: subText, colorClass: 'mode-intermission' });
             }
             return true;
@@ -474,15 +480,6 @@
         function runStep() {
             if (currentStepIndex >= schedule.length) { finish(); return; }
             const step = schedule[currentStepIndex];
-            
-            if (step.phase === 'PAUSE') {
-                if (activeF2F.length > 0 && activeF2F[0].isET) {
-                    etCompleted.push(...activeF2F);
-                    activeF2F = [];
-                } else if (activeF2F.length > 0 && !activeF2F[0].isET) {
-                    etCompleted = [];
-                }
-            }
 
             elStatus.innerText = step.label; elInfo.innerText = step.sub;
             const colorClass = 'main-stage ' + step.colorClass;
@@ -513,10 +510,10 @@
                 elPauseBtnPc.innerText = isPaused ? "▶ RESUME" : "⏸ PAUSE";
             }
             
-            if(step.phase === 'STATION') playBeep(800, 0.5); 
-            else if(step.phase === 'PREP') playBeep(440, 0.5);
-            else if(step.phase === 'FEEDBACK') playBeep(700, 0.4);
-            else if(step.phase === 'MOVE') playBeep(600, 0.3);
+            if(step.phase.includes('STATION')) playBeep(800, 0.5); 
+            else if(step.phase.includes('PREP')) playBeep(440, 0.5);
+            else if(step.phase.includes('FEEDBACK')) playBeep(700, 0.4);
+            else if(step.phase.includes('MOVE') || step.phase.includes('ENTER')) playBeep(600, 0.3);
             
             broadcastState();
         }
@@ -532,12 +529,8 @@
         
         function togglePause() { 
             isPaused = !isPaused; 
-            if(isPaused) { 
-                pauseTimeLeft = targetTime - Date.now(); 
-                targetTime = null; 
-            } else { 
-                targetTime = Date.now() + pauseTimeLeft; 
-            } 
+            if(isPaused) { pauseTimeLeft = targetTime - Date.now(); targetTime = null; } 
+            else { targetTime = Date.now() + pauseTimeLeft; } 
             if (elPauseBtnPc) elPauseBtnPc.innerText = isPaused ? "▶ RESUME" : "⏸ PAUSE";
             broadcastState(); 
         }
@@ -565,6 +558,7 @@
             stdF2FQueue = stdF2FQueue.filter(s => s.id !== id);
             stdCalcQueue = stdCalcQueue.filter(s => s.id !== id);
             activeF2F = activeF2F.filter(s => s.id !== id);
+            activePrep = activePrep.filter(s => s.id !== id);
             activeCalc = activeCalc.filter(s => s.id !== id);
             etCompleted = etCompleted.filter(s => s.id !== id);
             updateSidebars(schedule[currentStepIndex]);
@@ -577,58 +571,118 @@
 
             let leftArr = [], rightArr = [];
             
-            // Dynamic right sidebar header based on Staggered mode
-            let rightHeader = isStaggered && !isPausable && step.phase === 'STATION' ? "Up Next (Reading Prep)" : "Up Next";
-            let leftHeader = "Current";
-            
+            // BUILD LEFT SIDEBAR (EXPLICIT UI MAPPING)
             if (isPausable) {
-                leftHeader = "On Deck";
-                rightHeader = "Up Next";
-                
+                let deckF2F = [], deckPrep = [], deckCalc = [];
                 if (etQueue.length > 0) {
-                    leftArr = tagList(etQueue.slice(0, cap), 'Station');
-                    let nextET = etQueue.slice(cap, cap*2);
-                    if (nextET.length > 0) rightArr = tagList(nextET, 'Station');
-                    else rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                    deckF2F = etQueue.slice(0, cap);
+                    deckPrep = isStaggered ? etQueue.slice(cap, cap*2) : [];
                 } else {
                     if (pendingSwap) {
-                        leftArr = [...tagList(activeCalc, 'Station'), ...tagList(activeF2F, 'Calc')];
-                        rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                        deckF2F = activeCalc.slice(0, cap);
+                        deckPrep = isStaggered ? activeCalc.slice(cap, cap*2) : [];
+                        deckCalc = [...activeF2F, ...activePrep];
                     } else {
-                        leftArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
-                        rightArr = [...tagList(stdCalcQueue.slice(0, cap), 'Station'), ...tagList(stdF2FQueue.slice(0, cap), 'Calc')];
+                        deckF2F = stdF2FQueue.slice(0, cap);
+                        deckPrep = isStaggered ? stdF2FQueue.slice(cap, cap*2) : [];
+                        let calcPull = isStaggered ? (cap * 2) : cap;
+                        deckCalc = stdCalcQueue.slice(0, calcPull);
                     }
+                }
+                
+                if (deckF2F.length > 0) {
+                    leftArr.push({ isDivider: true, text: isStaggered ? "🟠 TO PREP" : "🟢 TO F2F CIRCUIT" });
+                    leftArr = leftArr.concat(tagList(deckF2F, 'Station'));
+                }
+                if (deckPrep.length > 0) {
+                    leftArr.push({ isDivider: true, text: "⏳ WAITING" });
+                    leftArr = leftArr.concat(tagList(deckPrep, 'Station'));
+                }
+                if (deckCalc.length > 0 || etCompleted.length > 0) {
+                    leftArr.push({ isDivider: true, text: "⚪ CALCS ROOM" });
+                    if (deckCalc.length > 0) leftArr = leftArr.concat(tagList(deckCalc, 'Calc'));
+                    if (etCompleted.length > 0) leftArr = leftArr.concat(tagList(etCompleted, 'Calc'));
                 }
             } else {
-                leftHeader = "Current";
-                
-                if (isRunningET) {
-                    leftArr = tagList(activeF2F, 'Station');
-                    let nextET = etQueue.slice(0, cap);
-                    if (nextET.length > 0) rightArr = tagList(nextET, 'Station');
-                    else rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
-                } else {
-                    leftArr = [...tagList(activeF2F, 'Station'), ...tagList(activeCalc, 'Calc')];
-                    if (pendingSwap) {
-                        rightArr = [...tagList(activeCalc, 'Station'), ...tagList(activeF2F, 'Calc')];
+                if (isStaggered) {
+                    let w1Label = "", w2Label = "";
+                    let w1Top = true; // Determines physical display order (Prep ALWAYS on top)
+
+                    if (step.phase === 'READY' || step.phase === 'PREP_1') { w1Label = "🟠 READING PREP"; w2Label = "⏳ WAITING"; w1Top = true; }
+                    else if (step.phase === 'ENTER_1') { w1Label = "🔵 ENTER STATION"; w2Label = "⏳ WAITING"; w1Top = true; }
+                    else if (step.phase === 'STATION_1') { w1Label = "🟢 IN STATION"; w2Label = "🟠 READING PREP"; w1Top = false; }
+                    else if (step.phase === 'FEEDBACK_1') { w1Label = "🟣 FEEDBACK"; w2Label = "⏳ WAITING"; w1Top = false; }
+                    else if (step.phase === 'MOVE_SWAP') { w1Label = "🔵 EXIT"; w2Label = "🔵 ENTER STATION"; w1Top = false; }
+                    else if (step.phase === 'STATION_2') { w2Label = "🟢 IN STATION"; w1Label = step.sub.includes('FINISHED') ? "✅ FINISHED (WAIT)" : "🟠 READING PREP"; w1Top = true; }
+                    else if (step.phase === 'FEEDBACK_2') { w2Label = "🟣 FEEDBACK"; w1Label = step.sub.includes('FINISHED') ? "✅ FINISHED" : "⏳ WAITING"; w1Top = true; }
+                    else if (step.phase === 'MOVE_END') { w2Label = "🔵 EXIT"; w1Label = step.sub.includes('ALL') ? "✅ FINISHED" : "🔵 ENTER STATION"; w1Top = true; }
+                    
+                    let w1Block = [{ isDivider: true, text: w1Label }].concat(tagList(activeF2F, 'Station'));
+                    let w2Block = [{ isDivider: true, text: w2Label }].concat(tagList(activePrep, 'Station'));
+
+                    if (w1Top) {
+                        if (activeF2F.length > 0) leftArr = leftArr.concat(w1Block);
+                        if (activePrep.length > 0) leftArr = leftArr.concat(w2Block);
                     } else {
-                        rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                        if (activePrep.length > 0) leftArr = leftArr.concat(w2Block); // Renders Wave 2 (Prep) above Wave 1 (Station)
+                        if (activeF2F.length > 0) leftArr = leftArr.concat(w1Block);
+                    }
+                } else {
+                    let f2fLabel = "🟢 IN STATION";
+                    if (step.phase === 'READY') f2fLabel = "🟠 TO PREP";
+                    else if (step.phase === 'PREP') f2fLabel = "🟠 READING PREP";
+                    else if (step.phase === 'ENTER') f2fLabel = "🔵 ENTER STATION";
+                    else if (step.phase === 'MOVE') f2fLabel = "🔵 MOVE TO NEXT";
+                    
+                    if (activeF2F.length > 0) {
+                        leftArr.push({ isDivider: true, text: f2fLabel });
+                        leftArr = leftArr.concat(tagList(activeF2F, 'Station'));
                     }
                 }
+                
+                if (activeCalc.length > 0 || etCompleted.length > 0) {
+                    leftArr.push({ isDivider: true, text: "⚪ CALCS ROOM" });
+                    if (activeCalc.length > 0) leftArr = leftArr.concat(tagList(activeCalc, 'Calc'));
+                    if (etCompleted.length > 0) leftArr = leftArr.concat(tagList(etCompleted, 'Calc'));
+                }
             }
-            
-            document.getElementById('lbl-left').innerText = leftHeader;
-            
-            // Highlight right header if they are actively reading prep
-            let rLbl = document.getElementById('lbl-right');
-            rLbl.innerText = rightHeader;
-            if (rightHeader.includes('Prep')) rLbl.classList.add('header-highlight');
-            else rLbl.classList.remove('header-highlight');
 
-            // Render finished ET students on the left sidebar continuously while they do Calcs
-            if (etCompleted.length > 0) {
-                leftArr = [...leftArr, ...tagList(etCompleted, 'Calc')];
+            // BUILD RIGHT SIDEBAR
+            let nextF2F = [], nextPrep = [], nextCalc = [];
+            if (pendingSwap) {
+                nextF2F = activeCalc.slice(0, cap);
+                nextPrep = isStaggered ? activeCalc.slice(cap, cap*2) : [];
+                nextCalc = [...activeF2F, ...activePrep];
+            } else {
+                nextF2F = isRunningET ? etQueue.slice(0, cap) : stdF2FQueue.slice(0, cap);
+                nextPrep = isRunningET ? etQueue.slice(cap, cap*2) : (isStaggered ? stdF2FQueue.slice(cap, cap*2) : []);
+                let calcPull = isStaggered ? (cap * 2) : cap;
+                nextCalc = isRunningET ? [] : stdCalcQueue.slice(0, calcPull);
             }
+
+            if (isStaggered) {
+                if (nextF2F.length > 0) {
+                    rightArr.push({ isDivider: true, text: "🟠 NEXT TO PREP" }); 
+                    rightArr = rightArr.concat(tagList(nextF2F, 'Station'));
+                }
+                if (nextPrep.length > 0) {
+                    rightArr.push({ isDivider: true, text: "⏳ NEXT WAITING" });
+                    rightArr = rightArr.concat(tagList(nextPrep, 'Station'));
+                }
+            } else {
+                if (nextF2F.length > 0) {
+                    rightArr.push({ isDivider: true, text: "🟢 NEXT STATION" });
+                    rightArr = rightArr.concat(tagList(nextF2F, 'Station'));
+                }
+            }
+
+            if (nextCalc.length > 0) {
+                rightArr.push({ isDivider: true, text: "⚪ NEXT TO CALCS" });
+                rightArr = rightArr.concat(tagList(nextCalc, 'Calc'));
+            }
+
+            document.getElementById('lbl-left').innerText = isPausable ? "On Deck" : "Current";
+            document.getElementById('lbl-right').innerText = "Up Next";
             
             renderStudentList('list-current', leftArr, isPausable); 
             renderStudentList('list-next', rightArr, false);
@@ -640,6 +694,14 @@
             
             list.forEach(s => {
                 const li = document.createElement('li');
+                
+                if (s.isDivider) {
+                    li.className = 'list-divider';
+                    li.innerText = s.text;
+                    ul.appendChild(li);
+                    return;
+                }
+
                 let c = ""; 
                 let displayGroup = s.group || "";
                 let action = s.action || "";
@@ -694,13 +756,7 @@
                         if(pipWindow) pipWindow.document.body.className = colClass;
                         document.getElementById('list-current').innerHTML = d.sbL; document.getElementById('list-next').innerHTML = d.sbR;
                         document.getElementById('lbl-left').innerText = d.sbLTitle; document.getElementById('lbl-right').innerText = d.sbRTitle;
-                        
-                        let rLbl = document.getElementById('lbl-right');
-                        if (d.sbRTitle.includes('Prep')) rLbl.classList.add('header-highlight');
-                        else rLbl.classList.remove('header-highlight');
-
                         if(elActionBtn) elActionBtn.style.display = 'none'; if(elDynCapContainer) elDynCapContainer.style.display = 'none';
-                        if(elPauseBtnPc) elPauseBtnPc.style.display = 'none';
                     }
                 }
             };
