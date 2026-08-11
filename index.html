@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OSCE Master (Split-Flight V4.2)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        /* --- VARIABLES --- */
+        :root {
+            --bg: #121212; --surf: #1e1e1e; --text: #ffffff;
+            --accent: #2563eb; --green: #10b981; --amber: #f59e0b; --red: #ef4444; --purple: #8b5cf6;
+            --prep-color: #d97706; --station-color: #059669; --feedback-color: #7e22ce; --move-color: #2563eb;
+            --ready-color: #374151; --standby-color: #0f172a; --stop-color: #b91c1c;
+            --intermission-color: #111; --extra-prep: #7c2d12; --extra-station: #064e3b;
+            --sidebar-bg: #111; --border: #333;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+
+        .view { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; flex-direction: column; }
+        .view.active { display: flex; }
+
+        /* TOP CENTER SESSION CODE & STATUS */
+        #host-code-display {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 9999;
+            background: rgba(0,0,0,0.85); padding: 5px 20px; border-radius: 8px;
+            border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: none; backdrop-filter: blur(5px); text-align: center;
+        }
+        .code-title { font-size: 0.55rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0px; }
+        .code-val { font-size: 1.4rem; font-weight: 800; font-family: monospace; color: var(--accent); letter-spacing: 4px; line-height: 1.2; }
+        .conn-row { display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #888; margin-top: 2px; gap: 5px; font-weight: bold; text-transform: uppercase;}
+        .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: #444; display: inline-block; transition: background 0.3s; }
+        .conn-dot.dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .conn-dot.dot-red { background: var(--red); box-shadow: 0 0 5px var(--red); }
+
+        /* 1. LANDING (Stacked Layout) */
+        #view-landing { align-items: center; justify-content: center; gap: 20px; z-index: 200; background: var(--bg); }
+        .landing-btn-group { display: flex; flex-direction: column; gap: 20px; align-items: center; width: 100%; max-width: 400px; }
+        .btn-xl { padding: 25px 20px; font-size: 1.3rem; border: none; border-radius: 12px; width: 90%; font-weight: bold; cursor: pointer; color: white; text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s; }
+        .btn-host { background: var(--accent); box-shadow: 0 4px 15px rgba(37,99,235,0.4); }
+        .btn-remote { background: var(--purple); box-shadow: 0 4px 15px rgba(139,92,246,0.4); }
+        .btn-viewer { background: var(--amber); box-shadow: 0 4px 15px rgba(245,158,11,0.4); color: #000; }
+        .btn-xl:active { transform: scale(0.98); }
+        
+        /* VERSION STAMP */
+        #version-stamp { position: absolute; bottom: 15px; width: 100%; text-align: center; color: #555; font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
+
+        /* 2. SETUP */
+        #view-setup { padding: 40px; max-width: 900px; margin: 0 auto; width: 100%; overflow-y: auto; padding-bottom: 80px; }
+        .card { background: var(--surf); padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        h2 { margin-top: 0; font-weight: 300; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        textarea { width: 100%; height: 120px; background: #2d2d2d; border: 1px solid #444; color: #fff; padding: 10px; font-family: monospace; border-radius: 4px; white-space: pre; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+        label { display: block; color: #aaa; font-size: 0.85rem; margin-bottom: 5px; }
+        input, select { background: #333; border: 1px solid #555; color: white; padding: 10px; width: 100%; border-radius: 6px; }
+        .input-wrapper { display: flex; gap: 5px; }
+        .btn-full { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 8px; }
+
+        /* 3. DASHBOARD */
+        #view-run { display: none; height: 100vh; width: 100vw; grid-template-columns: 350px 1fr 350px; }
+        .sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+        .sidebar-right { border-right: none; border-left: 1px solid var(--border); }
+        .sb-header { margin: 0; padding: 15px; text-transform: uppercase; font-size: 1rem; color: #888; border-bottom: 1px solid #333; text-align: center; background: #161616; flex-shrink: 0; letter-spacing: 1px; }
+        
+        /* ZERO-SCROLL AUTO-FIT LISTS (BULLETPROOFED) */
+        .student-list { 
+            list-style: none; padding: 4px; margin: 0; 
+            flex-grow: 1; display: flex; flex-direction: column; 
+            gap: 2px; overflow: hidden; height: 100%;
+        }
+        .student-item { 
+            flex: 1 1 0%; /* Ruthless vertical squashing override */
+            min-height: 0; /* Prevents text from forcing container size */
+            max-height: 45px; 
+            padding: 0 8px; margin: 0; background: #252525; border-radius: 4px; border-left: 5px solid #555; 
+            display: flex; justify-content: space-between; align-items: center; gap: 6px; 
+            font-size: clamp(0.6rem, 1.8vh, 1rem); 
+            overflow: hidden; 
+        }
+        .student-name-container { 
+            display: flex; align-items: center; gap: 6px; 
+            min-width: 0; /* Critical for ellipsis truncation inside flex */
+            flex-grow: 1; 
+        }
+        .student-name-text { 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        }
+        
+        .group-tag { font-size: clamp(0.55rem, 1.2vh, 0.75rem); font-weight: bold; text-transform: uppercase; padding: 2px 4px; border-radius: 3px; background: #444; color: #ddd; min-width: 40px; text-align: center; white-space: nowrap; flex-shrink: 0; }
+        
+        /* Group Colors */
+        .grp-red { border-left-color: #ef4444 !important; } .grp-red .group-tag { background: #7f1d1d; color: #fecaca; }
+        .grp-blue { border-left-color: #3b82f6 !important; } .grp-blue .group-tag { background: #1e3a8a; color: #bfdbfe; }
+        .grp-green { border-left-color: #10b981 !important; } .grp-green .group-tag { background: #064e3b; color: #a7f3d0; }
+        .grp-yellow { border-left-color: #eab308 !important; } .grp-yellow .group-tag { background: #713f12; color: #fef08a; }
+        .grp-orange { border-left-color: #f97316 !important; } .grp-orange .group-tag { background: #7c2d12; color: #fdba74; }
+        .grp-calc { border-left-color: #6b7280 !important; } .grp-calc .group-tag { background: #374151; color: #d1d5db; border: 1px solid #4b5563; }
+
+        .skip-btn { background: #ef4444; color: white; border: none; border-radius: 4px; width: 18px; height: 18px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0.8; flex-shrink: 0; }
+        .skip-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        .main-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 100%; height: 100%; transition: background 0.5s; position: relative; overflow: hidden; }
+        
+        .main-stage.mode-standby { background-color: var(--standby-color); }
+        .main-stage.mode-ready { background-color: var(--ready-color); }
+        .main-stage.mode-prep { background-color: var(--prep-color); }
+        .main-stage.mode-station { background-color: var(--station-color); }
+        .main-stage.mode-feedback { background-color: var(--feedback-color); }
+        .main-stage.mode-move { background-color: var(--move-color); }
+        .main-stage.mode-intermission { background-color: var(--intermission-color); }
+        .main-stage.mode-et-prep { background-color: var(--extra-prep); }
+        .main-stage.mode-et-station { background-color: var(--extra-station); }
+        .main-stage.mode-done { background-color: var(--stop-color); }
+
+        #stage-content { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
+        #status-text { font-size: 5vw; font-weight: 800; text-transform: uppercase; margin: 0; line-height: 1; text-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        #timer { font-size: 18vw; font-weight: 700; line-height: 0.9; font-variant-numeric: tabular-nums; margin: 10px 0; letter-spacing: -5px; }
+        #info-bar { font-size: 1.5vw; background: rgba(0,0,0,0.4); padding: 8px 30px; border-radius: 50px; margin-top: 20px; color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.1); }
+
+        #action-btn { display: none; margin-top: 20px; font-size: 1.5rem; padding: 15px 50px; background: white; color: black; border: none; border-radius: 50px; cursor: pointer; animation: pulse 2s infinite; box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 100; font-weight: bold; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        #top-right-tools { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
+        .tool-btn { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; transition: background 0.2s; }
+        .tool-btn:hover { background: rgba(255,255,255,0.3); }
+        .btn-pause-pc { background: var(--amber); color: #000; border: none; }
+        .btn-pause-pc:hover { background: #d97706; }
+
+        /* 4. REMOTE & VIEWER FORMS */
+        #view-remote-passcode, #view-remote-login, #view-viewer-login, #view-remote { align-items: center; justify-content: center; padding: 20px; }
+        .code-input { font-size: 3rem; width: 200px; text-align: center; margin: 20px 0; background: #333; border: 2px solid #555; color: white; border-radius: 12px; padding: 10px; letter-spacing: 5px; }
+        
+        .rem-grid { display: grid; grid-template-rows: 1fr 2fr 1fr; width: 100%; height: 100%; gap: 15px; max-width: 500px; }
+        .rem-status { background: #222; border-radius: 15px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background 0.3s; }
+        .rem-btn { border: none; border-radius: 15px; font-size: 1.8rem; font-weight: bold; color: white; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .rem-btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn-next { background: var(--accent); } .btn-pause { background: var(--amber); } .btn-exit { background: var(--red); }
+    </style>
+</head>
+<body>
+
+    <div id="host-code-display">
+        <div class="code-title">Session Code</div>
+        <div class="code-val" id="code-val">----</div>
+        <div class="conn-row">
+            <span class="conn-dot dot-red" id="conn-dot"></span> 
+            <span id="conn-txt" style="color: var(--red);">Disconnected</span>
+        </div>
+    </div>
+
+    <div id="view-landing" class="view active">
+        <h1 style="font-size:3rem; margin-bottom:40px; text-align:center;">OSCE Manager</h1>
+        <div class="landing-btn-group">
+            <button class="btn-xl btn-host" onclick="initHost()">💻 START AS HOST</button>
+            <button class="btn-xl btn-remote" onclick="initRemotePasscode()">📱 START AS REMOTE</button>
+            <button class="btn-xl btn-viewer" onclick="initViewerLogin()">👁️ START AS VIEWER</button>
+        </div>
+        
+        <div id="viewer-msg" style="display:none; text-align:center; margin-top:30px;">
+            <p id="viewer-txt" style="color:#aaa; font-size:1.2rem; margin-bottom:20px;">Connecting to Session...</p>
+            <button id="force-load-btn" onclick="forceViewerLoad()" style="display:none; padding:10px 20px; background:#444; color:white; border:none; border-radius:6px; cursor:pointer;">Force Load Dashboard</button>
+        </div>
+        
+        <div id="version-stamp">VERSION 4.2 | ZERO-SCROLL AUTO-FIT SIDEBARS</div>
+    </div>
+
+    <div id="view-setup" class="view">
+        <div class="card">
+            <h2>Student Data</h2>
+            <textarea id="paste-area" placeholder="ET&#9;Student&#9;Surname&#9;Red&#9;Station&#10;&#9;Forename&#9;Student&#9;Orange&#9;Calcs"></textarea>
+            <button class="btn-full" style="background:#4b5563; width:auto; padding:10px 20px; font-size:1rem;" onclick="analyze()">Analyze & Group</button>
+            <span id="analysis-summary" style="color:#aaa; margin-left:10px;"></span>
+        </div>
+        <div class="card">
+            <h2>Configuration</h2>
+            <div class="config-grid">
+                <div><label>Prep Time</label><div class="input-wrapper"><input type="number" id="val-prep" value="1"><select id="unit-prep"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
+                <div><label>Station Time</label><div class="input-wrapper"><input type="number" id="val-station" value="7"><select id="unit-station"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
+                <div><label>Feedback Time</label><div class="input-wrapper"><input type="number" id="val-feedback" value="0"><select id="unit-feedback"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
+                <div><label>Move Time</label><div class="input-wrapper"><input type="number" id="val-move" value="1"><select id="unit-move"><option value="min">Min</option><option value="sec">Sec</option></select></div></div>
+                <div><label>Lead-In (Start)</label><input type="number" id="val-leadin" value="10"></div>
+                <div><label>Room Capacity</label><input type="number" id="capacity" value="12"></div>
+                <div><label>Stations/Circuit</label><input type="number" id="stations-count" value="4"></div>
+            </div>
+        </div>
+        <button class="btn-full" onclick="startExam()">LOAD EXAM DASHBOARD</button>
+    </div>
+
+    <div id="view-run" class="view">
+        <div class="sidebar">
+            <h3 class="sb-header" id="lbl-left">Current</h3>
+            <ul id="list-current" class="student-list"></ul>
+        </div>
+        
+        <div class="main-stage" id="main-stage-bg">
+            <div id="top-right-tools">
+                <button id="pause-btn-pc" class="tool-btn btn-pause-pc" onclick="togglePause()" style="display:none;">⏸ PAUSE</button>
+                <button id="pip-btn" class="tool-btn" onclick="togglePiP()">📺 Pop Out</button>
+            </div>
+            <div id="stage-content">
+                <div id="status-text">WELCOME</div>
+                <div id="timer">--:--</div>
+                <div id="info-bar">WAITING FOR HOST...</div>
+                
+                <div id="dynamic-capacity-container" style="display:none; margin-top:20px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 8px;">
+                    <label for="dyn-capacity" style="font-size:0.9rem; color:#aaa; text-transform:uppercase;">Room Capacity:</label>
+                    <input type="number" id="dyn-capacity" value="12" oninput="updateSidebars(schedule[currentStepIndex])" style="width:70px; font-size:1.2rem; text-align:center; margin-left:10px; background:#222; color:#fff; border:1px solid #555; border-radius:4px;">
+                </div>
+            </div>
+            <button id="action-btn" onclick="nextSection()">BEGIN</button>
+        </div>
+
+        <div class="sidebar sidebar-right">
+            <h3 class="sb-header" id="lbl-right">Up Next</h3>
+            <ul id="list-next" class="student-list"></ul>
+        </div>
+    </div>
+
+    <div id="view-remote-passcode" class="view">
+        <h2>ENTER REMOTE PASSCODE</h2>
+        <input type="password" id="remote-passcode-input" class="code-input" placeholder="****">
+        <button class="btn-xl btn-remote" onclick="checkRemotePasscode()">VERIFY</button>
+        <p id="passcode-msg" style="color:var(--red); margin-top:20px;"></p>
+        <button onclick="location.reload()" style="margin-top:20px; background:none; border:none; color:#888; text-decoration:underline; cursor:pointer;">Back to menu</button>
+    </div>
+
+    <div id="view-remote-login" class="view">
+        <h2>ENTER EXAM CODE</h2>
+        <input type="number" id="remote-code-input" class="code-input" placeholder="0000">
+        <button class="btn-xl btn-remote" onclick="connectRemote()">CONNECT CONTROLLER</button>
+    </div>
+
+    <div id="view-viewer-login" class="view">
+        <h2>ENTER EXAM CODE</h2>
+        <input type="number" id="viewer-code-input" class="code-input" placeholder="0000">
+        <button class="btn-xl btn-viewer" onclick="connectViewer()">WATCH SESSION</button>
+        <button onclick="location.reload()" style="margin-top:20px; background:none; border:none; color:#888; text-decoration:underline; cursor:pointer;">Back to menu</button>
+    </div>
+
+    <div id="view-remote" class="view">
+        <div class="rem-grid">
+            <div class="rem-status" id="rem-bg">
+                <div id="rem-lbl" style="font-size:1.5rem; font-weight:bold;">READY</div>
+                <div id="rem-time" style="font-size:4rem; font-family:monospace; font-weight:bold;">--:--</div>
+                <div id="rem-sub" style="color:#aaa;">Waiting...</div>
+            </div>
+            <button class="rem-btn btn-next" onclick="sendCmd('CLICK')">NEXT / START</button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <button class="rem-btn btn-pause" onclick="sendCmd('PAUSE')">PAUSE</button>
+                <button class="rem-btn btn-exit" onclick="location.reload()">EXIT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BROKER = "broker.emqx.io";
+        const PORT = 8084;
+        let client = null, examID = "", isHost = false, pipWindow = null;
+        let targetTime = null, isPaused = false, pauseTimeLeft = 0;
+        
+        // QUEUE & SCHEDULE VARIABLES
+        let etStudents = [], stdStudents = [];
+        let schedule = [], currentStepIndex = 0;
+        
+        // Master queues
+        let etQueue = [], stdF2FQueue = [], stdCalcQueue = [];
+        
+        // Active arrays (Who is currently on the floor)
+        let activeF2F = [], activeCalc = [];
+        
+        // Permanent storage for ET students who have finished F2F and moved to Calcs
+        let etCompleted = [];
+        
+        let pendingSwap = false; 
+        let isRunningET = false; 
+        let capacity = 12; let audioCtx = null;
+        
+        // DOM ELEMENTS
+        let elStatus, elTimer, elInfo, elStageBg, elActionBtn, elDynCapContainer, elDynCapInput, elPauseBtnPc;
+
+        window.onload = () => {
+            elStatus = document.getElementById('status-text');
+            elTimer = document.getElementById('timer');
+            elInfo = document.getElementById('info-bar');
+            elStageBg = document.getElementById('main-stage-bg');
+            elActionBtn = document.getElementById('action-btn');
+            elDynCapContainer = document.getElementById('dynamic-capacity-container');
+            elDynCapInput = document.getElementById('dyn-capacity');
+            elPauseBtnPc = document.getElementById('pause-btn-pc');
+        };
+
+        function forceViewerLoad() { switchView('view-run'); }
+        
+        function setStatus(connected, msg) {
+            const ind = document.getElementById('conn-dot'); 
+            const txt = document.getElementById('conn-txt');
+            if (!ind || !txt) return;
+            if(connected) { 
+                ind.className = 'conn-dot dot-green'; 
+                txt.innerText = "Online"; txt.style.color = "var(--green)"; 
+            } else { 
+                ind.className = 'conn-dot dot-red'; 
+                txt.innerText = msg || "Offline"; txt.style.color = "var(--red)"; 
+            }
+        }
+
+        function switchView(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'view-run') document.getElementById('view-run').style.display='grid';
+            
+            if(id === 'view-setup' || id === 'view-run') {
+                document.getElementById('host-code-display').style.display = 'block';
+            } else {
+                document.getElementById('host-code-display').style.display = 'none';
+            }
+        }
+
+        function initHost() { isHost = true; examID = Math.floor(1000 + Math.random() * 9000).toString(); document.getElementById('code-val').innerText = examID; document.getElementById('pip-btn').style.display = 'none'; switchView('view-setup'); connectMQTT(examID); }
+        function initRemotePasscode() { switchView('view-remote-passcode'); }
+        function checkRemotePasscode() { if(document.getElementById('remote-passcode-input').value === '1724') { document.getElementById('remote-passcode-input').value = ''; document.getElementById('passcode-msg').innerText = ''; isHost = false; switchView('view-remote-login'); } else { document.getElementById('passcode-msg').innerText = 'Incorrect Passcode'; } }
+        function connectRemote() { examID = document.getElementById('remote-code-input').value; connectMQTT(examID); }
+        function initViewerLogin() { switchView('view-viewer-login'); }
+        function connectViewer() { examID = document.getElementById('viewer-code-input').value; isHost = false; document.getElementById('viewer-msg').style.display = 'block'; document.querySelector('.landing-btn-group').style.display = 'none'; switchView('view-landing'); connectMQTT(examID); }
+
+        function getSeconds(valId, unitId) { const val = parseFloat(document.getElementById(valId).value)||0; return document.getElementById(unitId).value==='min'?val*60:val; }
+
+        function analyze() {
+            const raw = document.getElementById('paste-area').value;
+            capacity = parseInt(document.getElementById('capacity').value) || 12;
+            const lines = raw.split('\n');
+            etStudents = []; stdStudents = [];
+            const etTriggers = ['et', 'yes', '25', '25%', 'extra', 'y'];
+            const colorTriggers = ['red', 'green', 'blue', 'yellow', 'orange'];
+            
+            lines.forEach(line => {
+                const tokens = line.replace(/\r/g, '').split('\t').map(t => t.trim());
+                if (tokens.join('').length === 0) return;
+                
+                const lineLower = line.toLowerCase();
+                const calcIdx = lineLower.indexOf('calc');
+                const stnIdx = lineLower.indexOf('station');
+                let startPos = "F2F";
+                if (calcIdx !== -1 && (stnIdx === -1 || calcIdx < stnIdx)) startPos = "CALC";
+
+                let group = "", groupIndex = -1;
+                for (let i = tokens.length - 1; i >= 0; i--) { 
+                    if (colorTriggers.some(c => tokens[i].toLowerCase().includes(c))) { group = tokens[i]; groupIndex = i; break; } 
+                }
+                
+                let isExtra = false, nameStart = 0;
+                const first = tokens[0].toLowerCase();
+                if (etTriggers.includes(first) || first.startsWith('25%')) { isExtra = true; nameStart = 1; }
+                else if (first === "") { isExtra = false; nameStart = 1; }
+                
+                const nameEnd = (groupIndex > -1) ? groupIndex : tokens.length;
+                const nameTokens = tokens.slice(nameStart, nameEnd).filter(n => n && !n.toLowerCase().includes('calc') && !n.toLowerCase().includes('station'));
+                const name = nameTokens.join(' ');
+                
+                const studentObj = { id: 'stu_' + Math.random().toString(36).substr(2, 9), name: name || "Student", group: group, startPos: startPos, isET: isExtra };
+                
+                if (isExtra) {
+                    studentObj.startPos = 'F2F'; 
+                    etStudents.push(studentObj);
+                } else {
+                    stdStudents.push(studentObj);
+                }
+            });
+            
+            const numF2F = stdStudents.filter(s=>s.startPos==='F2F').length;
+            const numCalc = stdStudents.filter(s=>s.startPos==='CALC').length;
+            document.getElementById('analysis-summary').innerText = `ET: ${etStudents.length} | STD-F2F: ${numF2F} | STD-CALC: ${numCalc}`;
+        }
+
+        function startExam() {
+            capacity = parseInt(document.getElementById('capacity').value) || 12;
+            elDynCapInput.value = capacity;
+
+            if(etStudents.length===0 && stdStudents.length===0) analyze();
+            
+            etQueue = [...etStudents]; 
+            stdF2FQueue = stdStudents.filter(s => s.startPos === 'F2F');
+            stdCalcQueue = stdStudents.filter(s => s.startPos === 'CALC');
+            
+            pendingSwap = false;
+            activeF2F = []; activeCalc = [];
+            etCompleted = [];
+
+            schedule = [{ type: 'STANDBY', phase: 'WAIT', duration: 0, label: 'WELCOME', sub: 'WAITING TO START', colorClass: 'mode-standby' }];
+
+            if (isHost && elPauseBtnPc) elPauseBtnPc.style.display = 'none';
+
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            switchView('view-run'); currentStepIndex = 0; runStep();
+        }
+
+        function buildNextFlightSteps() {
+            let cap = parseInt(elDynCapInput.value) || capacity;
+            
+            isRunningET = etQueue.length > 0;
+            
+            if (!isRunningET && stdF2FQueue.length === 0 && stdCalcQueue.length === 0 && !pendingSwap) return false;
+
+            let type = isRunningET ? 'ET' : 'STD';
+
+            if (isRunningET) {
+                activeF2F = etQueue.splice(0, cap);
+                activeCalc = [];
+                pendingSwap = false;
+            } else {
+                if (!pendingSwap) {
+                    activeF2F = stdF2FQueue.splice(0, cap);
+                    activeCalc = stdCalcQueue.splice(0, cap);
+                    pendingSwap = true; 
+                } else {
+                    let temp = activeF2F;
+                    activeF2F = activeCalc;
+                    activeCalc = temp;
+                    pendingSwap = false;
+                }
+            }
+
+            const basePrep = getSeconds('val-prep', 'unit-prep');
+            const baseStation = getSeconds('val-station', 'unit-station');
+            const baseFeedback = getSeconds('val-feedback', 'unit-feedback');
+            const baseMove = getSeconds('val-move', 'unit-move');
+            const leadIn = parseFloat(document.getElementById('val-leadin').value) || 0;
+            const stationsCount = parseInt(document.getElementById('stations-count').value) || 4;
+            const mult = isRunningET ? 1.25 : 1;
+
+            if (schedule[currentStepIndex].type === 'STANDBY' && leadIn > 0) {
+                schedule.push({ type: 'LEAD_IN', phase: 'READY', duration: leadIn, label: 'GET READY', sub: 'EXAM STARTING', colorClass: 'mode-ready' });
+            }
+
+            let flightLabel = isRunningET ? `ET FLIGHT` : (pendingSwap ? `STD FLIGHT A` : `STD FLIGHT B (SWAP)`);
+
+            for(let s = 1; s <= stationsCount; s++) {
+                schedule.push({ type, phase: 'PREP', duration: basePrep * mult, label: 'PREPARATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-prep' : 'mode-prep' });
+                schedule.push({ type, phase: 'STATION', duration: baseStation * mult, label: 'STATION', sub: `${flightLabel} - STN ${s}`, colorClass: isRunningET ? 'mode-et-station' : 'mode-station' });
+                if(baseFeedback > 0) schedule.push({ type, phase: 'FEEDBACK', duration: baseFeedback, label: 'FEEDBACK', sub: `GIVE FEEDBACK - STN ${s}`, colorClass: 'mode-feedback' });
+                schedule.push({ type, phase: 'MOVE', duration: baseMove, label: 'MOVE', sub: 'MOVE TO NEXT STATION', colorClass: 'mode-move' });
+            }
+
+            if (etQueue.length > 0 || stdF2FQueue.length > 0 || stdCalcQueue.length > 0 || pendingSwap) {
+                let subText = "PREPARE NEXT GROUP";
+                
+                if (isRunningET && etQueue.length === 0 && (stdF2FQueue.length > 0 || stdCalcQueue.length > 0)) {
+                    subText = "PREPARE STANDARD COHORT";
+                }
+                
+                schedule.push({ type: 'INTERMISSION', phase: 'PAUSE', duration: 0, label: 'INTERMISSION', sub: subText, colorClass: 'mode-intermission' });
+            }
+            return true;
+        }
+
+        function runStep() {
+            if (currentStepIndex >= schedule.length) { finish(); return; }
+            const step = schedule[currentStepIndex];
+            
+            if (step.phase === 'PAUSE') {
+                if (activeF2F.length > 0 && activeF2F[0].isET) {
+                    etCompleted.push(...activeF2F);
+                    activeF2F = [];
+                } else if (activeF2F.length > 0 && !activeF2F[0].isET) {
+                    etCompleted = [];
+                }
+            }
+
+            elStatus.innerText = step.label; elInfo.innerText = step.sub;
+            const colorClass = 'main-stage ' + step.colorClass;
+            elStageBg.className = colorClass;
+            if (pipWindow) pipWindow.document.body.className = colorClass;
+            
+            updateSidebars(step);
+
+            if(step.phase === 'WAIT' || step.phase === 'PAUSE') {
+                targetTime = null; elTimer.innerText = "--:--";
+                if (isHost) {
+                    elActionBtn.style.display = 'inline-block'; 
+                    elActionBtn.innerText = (step.phase === 'WAIT') ? "BEGIN EXAM" : (step.sub.includes("SWAP") ? "START SWAP RUN" : "START FLIGHT");
+                    elDynCapContainer.style.display = 'block';
+                } else {
+                    elActionBtn.style.display = 'none'; elDynCapContainer.style.display = 'none';
+                }
+                if (elPauseBtnPc) elPauseBtnPc.style.display = 'none';
+                if(step.phase === 'PAUSE') playBeep(600, 0.5);
+                broadcastState(); return;
+            }
+            
+            elActionBtn.style.display = 'none'; elDynCapContainer.style.display = 'none';
+            targetTime = Date.now() + (step.duration * 1000); isPaused = false;
+            
+            if (isHost && elPauseBtnPc) {
+                elPauseBtnPc.style.display = 'inline-block';
+                elPauseBtnPc.innerText = isPaused ? "▶ RESUME" : "⏸ PAUSE";
+            }
+            
+            if(step.phase === 'STATION') playBeep(800, 0.5); 
+            else if(step.phase === 'PREP') playBeep(440, 0.5);
+            else if(step.phase === 'FEEDBACK') playBeep(700, 0.4);
+            else if(step.phase === 'MOVE') playBeep(600, 0.3);
+            
+            broadcastState();
+        }
+
+        function nextSection() { 
+            const currentStep = schedule[currentStepIndex];
+            if (currentStep && (currentStep.phase === 'PAUSE' || currentStep.phase === 'WAIT')) {
+                const built = buildNextFlightSteps();
+                if (!built) { finish(); return; }
+            }
+            currentStepIndex++; runStep(); 
+        }
+        
+        function togglePause() { 
+            isPaused = !isPaused; 
+            if(isPaused) { 
+                pauseTimeLeft = targetTime - Date.now(); 
+                targetTime = null; 
+            } else { 
+                targetTime = Date.now() + pauseTimeLeft; 
+            } 
+            if (elPauseBtnPc) elPauseBtnPc.innerText = isPaused ? "▶ RESUME" : "⏸ PAUSE";
+            broadcastState(); 
+        }
+        
+        setInterval(() => {
+            let m="00", s="00";
+            if (targetTime) {
+                const diff = targetTime - Date.now();
+                if (diff <= 0) { if (isHost && currentStepIndex < schedule.length) { targetTime = null; nextSection(); } } 
+                else { m = Math.floor(diff / 60000).toString().padStart(2, '0'); s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0'); }
+            } else {
+                 if(isPaused && pauseTimeLeft > 0) { m = Math.floor(pauseTimeLeft / 60000).toString().padStart(2, '0'); s = Math.floor((pauseTimeLeft % 60000) / 1000).toString().padStart(2, '0'); }
+            }
+            const timeStr = `${m}:${s}`;
+            if(document.getElementById('view-remote').classList.contains('active')) document.getElementById('rem-time').innerText = timeStr;
+            else elTimer.innerText = timeStr;
+        }, 100);
+
+        function finish() { targetTime = null; elStatus.innerText = "DONE"; elTimer.innerText = "00:00"; elStageBg.className = 'main-stage mode-done'; if(pipWindow) pipWindow.document.body.className = 'main-stage mode-done'; broadcastState(); elActionBtn.style.display = 'none'; elDynCapContainer.style.display = 'none'; if(elPauseBtnPc) elPauseBtnPc.style.display = 'none'; }
+
+        const tagList = (list, act) => list.map(s => Object.assign({}, s, {action: act}));
+
+        function skipStudent(id) {
+            etQueue = etQueue.filter(s => s.id !== id);
+            stdF2FQueue = stdF2FQueue.filter(s => s.id !== id);
+            stdCalcQueue = stdCalcQueue.filter(s => s.id !== id);
+            activeF2F = activeF2F.filter(s => s.id !== id);
+            activeCalc = activeCalc.filter(s => s.id !== id);
+            etCompleted = etCompleted.filter(s => s.id !== id);
+            updateSidebars(schedule[currentStepIndex]);
+        }
+
+        function updateSidebars(step) {
+            if(!step) return;
+            let cap = parseInt(elDynCapInput.value) || capacity;
+            let isPausable = (step.phase === 'PAUSE' || step.phase === 'WAIT');
+
+            let leftArr = [], rightArr = [];
+            
+            if (isPausable) {
+                document.getElementById('lbl-left').innerText = "On Deck";
+                document.getElementById('lbl-right').innerText = "Up Next";
+                
+                if (etQueue.length > 0) {
+                    leftArr = tagList(etQueue.slice(0, cap), 'Station');
+                    let nextET = etQueue.slice(cap, cap*2);
+                    if (nextET.length > 0) rightArr = tagList(nextET, 'Station');
+                    else rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                } else {
+                    if (pendingSwap) {
+                        leftArr = [...tagList(activeCalc, 'Station'), ...tagList(activeF2F, 'Calc')];
+                        rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                    } else {
+                        leftArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                        rightArr = [...tagList(stdCalcQueue.slice(0, cap), 'Station'), ...tagList(stdF2FQueue.slice(0, cap), 'Calc')];
+                    }
+                }
+            } else {
+                document.getElementById('lbl-left').innerText = "Current";
+                document.getElementById('lbl-right').innerText = "Up Next";
+                
+                if (isRunningET) {
+                    leftArr = tagList(activeF2F, 'Station');
+                    let nextET = etQueue.slice(0, cap);
+                    if (nextET.length > 0) rightArr = tagList(nextET, 'Station');
+                    else rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                } else {
+                    leftArr = [...tagList(activeF2F, 'Station'), ...tagList(activeCalc, 'Calc')];
+                    if (pendingSwap) {
+                        rightArr = [...tagList(activeCalc, 'Station'), ...tagList(activeF2F, 'Calc')];
+                    } else {
+                        rightArr = [...tagList(stdF2FQueue.slice(0, cap), 'Station'), ...tagList(stdCalcQueue.slice(0, cap), 'Calc')];
+                    }
+                }
+            }
+            
+            // Render finished ET students on the left sidebar continuously while they do Calcs
+            if (etCompleted.length > 0) {
+                leftArr = [...leftArr, ...tagList(etCompleted, 'Calc')];
+            }
+            
+            renderStudentList('list-current', leftArr, isPausable); 
+            renderStudentList('list-next', rightArr, false);
+        }
+
+        function renderStudentList(id, list, showSkipBtn) {
+            const ul = document.getElementById(id); ul.innerHTML = '';
+            if(!list || list.length===0) { ul.innerHTML = '<li style="padding:15px; color:#555; text-align:center;">-</li>'; return; }
+            
+            list.forEach(s => {
+                const li = document.createElement('li');
+                let c = ""; 
+                let displayGroup = s.group || "";
+                let action = s.action || "";
+
+                if (action === 'Calc') {
+                    c = 'grp-calc';
+                    displayGroup = 'CALCS';
+                } else {
+                    const g = displayGroup.toLowerCase();
+                    if(g.includes('red')) c='grp-red'; 
+                    else if(g.includes('blue')) c='grp-blue'; 
+                    else if(g.includes('green')) c='grp-green'; 
+                    else if(g.includes('yellow')) c='grp-yellow';
+                    else if(g.includes('orange')) c='grp-orange';
+                }
+
+                li.className = `student-item ${c}`; 
+                
+                let skipHtml = (isHost && showSkipBtn) ? `<button class="skip-btn" onclick="skipStudent('${s.id}')" title="Skip/Absent">✕</button>` : '';
+                let groupHtml = displayGroup ? `<span class="group-tag">${displayGroup}</span>` : '';
+
+                li.innerHTML = `
+                    <div class="student-name-container">
+                        ${skipHtml}
+                        <span class="student-name-text">${s.name}</span>
+                    </div>
+                    ${groupHtml}
+                `; 
+                ul.appendChild(li);
+            });
+        }
+
+        // --- MQTT COMMS ---
+        function connectMQTT(id) {
+            setStatus(false, "Connecting...");
+            const clientId = (isHost?"host_":"conn_") + Math.random().toString(16).substr(2,8);
+            client = new Paho.MQTT.Client(BROKER, PORT, "/mqtt", clientId);
+            client.onConnectionLost = (o) => { setStatus(false, "Lost Connection"); };
+            client.onMessageArrived = (msg) => {
+                const d = JSON.parse(msg.payloadString);
+                if(isHost) {
+                    if(msg.destinationName.endsWith('/cmd')) { if(d.act === 'CLICK' && elActionBtn.style.display !== 'none') nextSection(); if(d.act === 'PAUSE') togglePause(); } return;
+                }
+                if(msg.destinationName.endsWith('/state')) {
+                    targetTime = d.target; isPaused = d.paused; pauseTimeLeft = d.ptl;
+                    if(document.getElementById('view-remote').classList.contains('active')) {
+                        document.getElementById('rem-lbl').innerText = d.lbl; document.getElementById('rem-sub').innerText = d.sub;
+                        const colorName = d.col.replace('mode-','').replace('main-stage','').trim();
+                        document.getElementById('rem-bg').style.background = getComputedStyle(document.body).getPropertyValue('--'+colorName+'-color');
+                    } else {
+                        elStatus.innerText = d.lbl; elInfo.innerText = d.sub; const colClass = 'main-stage ' + d.col; elStageBg.className = colClass;
+                        if(pipWindow) pipWindow.document.body.className = colClass;
+                        document.getElementById('list-current').innerHTML = d.sbL; document.getElementById('list-next').innerHTML = d.sbR;
+                        document.getElementById('lbl-left').innerText = d.sbLTitle; document.getElementById('lbl-right').innerText = d.sbRTitle;
+                        if(elActionBtn) elActionBtn.style.display = 'none'; if(elDynCapContainer) elDynCapContainer.style.display = 'none';
+                    }
+                }
+            };
+            client.connect({ useSSL: true, onSuccess: () => { setStatus(true, "Online"); document.getElementById('code-val').innerText = id; if(isHost) { client.subscribe(`osce/${id}/cmd`); } else { client.subscribe(`osce/${id}/state`); if(document.getElementById('view-remote-login').classList.contains('active')) { switchView('view-remote'); } else { switchView('view-run'); } } }, onFailure: () => { setStatus(false, "Blocked/Failed"); document.getElementById('viewer-txt').innerText = "Connection Failed. Firewall?"; document.getElementById('force-load-btn').style.display = 'inline-block'; } });
+        }
+        
+        function broadcastState() {
+            if(!isHost || !client || !client.isConnected()) return;
+            const cleanLeftHtml = document.getElementById('list-current').innerHTML.replace(/<button[^>]*skip-btn[^>]*>.*?<\/button>/g, '');
+            const cleanRightHtml = document.getElementById('list-next').innerHTML.replace(/<button[^>]*skip-btn[^>]*>.*?<\/button>/g, '');
+            const msg = { target: targetTime, paused: isPaused, ptl: pauseTimeLeft, lbl: elStatus.innerText, sub: elInfo.innerText, col: elStageBg.className.split(' ').pop(), sbL: cleanLeftHtml, sbR: cleanRightHtml, sbLTitle: document.getElementById('lbl-left').innerText, sbRTitle: document.getElementById('lbl-right').innerText };
+            const m = new Paho.MQTT.Message(JSON.stringify(msg)); m.destinationName = `osce/${examID}/state`; m.retained = true; client.send(m);
+        }
+        function sendCmd(act) { if(!client || !client.isConnected()) return; const m = new Paho.MQTT.Message(JSON.stringify({ act })); m.destinationName = `osce/${examID}/cmd`; client.send(m); }
+        function playBeep(f,d) { if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); try{const o=audioCtx.createOscillator();const g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=f;o.start();g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.stop(audioCtx.currentTime+d);}catch(e){} }
+        async function togglePiP() { if (!window.documentPictureInPicture) return alert("Use Chrome/Edge."); if (pipWindow) { pipWindow.close(); return; } pipWindow = await window.documentPictureInPicture.requestWindow({ width: 500, height: 350 }); [...document.head.querySelectorAll('style, link')].forEach(el => pipWindow.document.head.appendChild(el.cloneNode(true))); const body = pipWindow.document.body; body.className = elStageBg.className; body.style.display="flex"; body.style.alignItems="center"; body.style.justifyContent="center"; body.style.height="100vh"; const content = document.getElementById('stage-content'); body.append(content); pipWindow.addEventListener('pagehide', () => { elStageBg.insertBefore(content, elActionBtn); pipWindow = null; }); }
+    </script>
+</body>
+</html>
